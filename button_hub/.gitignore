@@ -1,0 +1,10 @@
+.build
+compile_commands.json
+data_index.css.cpp
+data_index.html.cpp
+data_index.js.cpp
+data_index.js.gz.cpp
+data_license.txt.gz.cpp
+kachaka-api.pb.c
+kachaka-api.pb.h
+version.hpp

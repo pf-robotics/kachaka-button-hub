@@ -1,0 +1,107 @@
+---
+# Some checks are disabled.
+# -altera-*: altera-* is designed for Altera SDK (FPGA) user, not for normal cpu
+# -hicpp-*: Many hicpp checks are aliases to modernize-*. We enable non-alias
+#     checks explicitly.
+#
+# -bugprone-easily-swappable-parameters: avoiding all warnings from this rule 
+#   may produce redundant and complex
+#
+# -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+# -cppcoreguidelines-pro-type-vararg,
+# -fuchsia-default-arguments-calls: Doesn't work well with ROS print macros
+#     (ex. ROS_INFO)
+#
+# -fuchsia-multiple-inheritance: Doesn't handle long class name correctly.
+#
+# -google-runtime-references: ros service callbacks have non-const reference arguments
+#
+# -modernize-use-trailing-return-type: Trailing return type is less readable.
+#
+# -llvmlibc-*: The LLVM-libc coding standards. These rules are only for development of libc++.
+#
+# -llvm-include-order: LLVM include order policy differs from our clang-tidy setting
+#
+# -readability-uppercase-literal-suffix: requirements of uppercase suffix
+#   for floating point (e.g. 3.14F) is annoying
+#
+# -*-magic-numbers: magic numbers should be tolerated for args of well-known ros methods
+#       (e.g. queue_size, default value of rosparam)
+#
+# -misc-non-private-member-variables-in-classes: duplication of core-non-private-member-variables-in-classes
+#
+#
+# -readability-identifier-length: there are many cased to be tolerated (e.g. counter (i, j), iterator (it))
+Checks: >
+  *,
+  -altera-*,
+  -hicpp-*,
+  hicpp-avoid-goto,
+  hicpp-exception-baseclass,
+  hicpp-multiway-paths-covered,
+  hicpp-no-assembler,
+  hicpp-signed-bitwise,
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-const-cast,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-owning-memory,
+  -fuchsia-default-arguments-calls,
+  -fuchsia-multiple-inheritance,
+  -fuchsia-statically-constructed-objects,
+  -google-runtime-references,
+  -llvmlibc-*,
+  -llvm-include-order,
+  -modernize-avoid-c-arrays,
+  -modernize-use-trailing-return-type,
+  -readability-uppercase-literal-suffix,
+  -*-magic-numbers,
+  -misc-non-private-member-variables-in-classes,
+  -readability-identifier-length,
+  -readability-implicit-bool-conversion,
+  -readability-misplaced-array-index,
+  -cert-err58-cpp,
+# TODO: Enable error
+#WarningsAsErrors: '*'
+AnalyzeTemporaryDtors: false
+FormatStyle: none
+CheckOptions:
+  - { key: cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor, value: 1 }
+  - { key: cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions, value: 1 }
+  - { key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic, value: 1 }
+
+  - { key: readability-identifier-naming.ClassCase,               value: CamelCase  }
+  - { key: readability-identifier-naming.ClassMemberCase,         value: lower_case }
+  - { key: readability-identifier-naming.ClassMemberSuffix,       value: _          }
+  - { key: readability-identifier-naming.ClassMethodCase,         value: CamelCase  }
+  - { key: readability-identifier-naming.ConstexprVariableCase,   value: CamelCase  }
+  - { key: readability-identifier-naming.ConstexprVariablePrefix, value: k          }
+  - { key: readability-identifier-naming.EnumCase,                value: CamelCase  }
+  - { key: readability-identifier-naming.EnumConstantCase,        value: CamelCase  }
+  - { key: readability-identifier-naming.EnumConstantPrefix,      value: k          }
+  - { key: readability-identifier-naming.FunctionCase,            value: CamelCase  }
+  - { key: readability-identifier-naming.GlobalConstantCase,      value: CamelCase  }
+  - { key: readability-identifier-naming.GlobalConstantPrefix,    value: k          }
+  - { key: readability-identifier-naming.MemberCase,              value: lower_case }
+  - { key: readability-identifier-naming.MemberConstantCase,      value: CamelCase  }
+  - { key: readability-identifier-naming.MemberConstantPrefix,    value: k          }
+  - { key: readability-identifier-naming.MethodCase,              value: CamelCase  }
+  - { key: readability-identifier-naming.NamespaceCase,           value: lower_case }
+  - { key: readability-identifier-naming.ParameterCase,           value: lower_case }
+  - { key: readability-identifier-naming.PrivateMemberSuffix,     value: _          }
+  - { key: readability-identifier-naming.ProtectedMemberSuffix,   value: _          }
+  - { key: readability-identifier-naming.StaticConstantCase,      value: CamelCase  }
+  - { key: readability-identifier-naming.StaticConstantPrefix,    value: k          }
+  - { key: readability-identifier-naming.StructCase,              value: CamelCase  }
+  - { key: readability-identifier-naming.TemplateParameterCase,   value: CamelCase  }
+  - { key: readability-identifier-naming.TypeTemplateParameterCase,   value: CamelCase  }
+  - { key: readability-identifier-naming.ValueTemplateParameterCase,   value: lower_case  }
+  - { key: readability-identifier-naming.UnionCase,               value: CamelCase  }
+  - { key: readability-identifier-naming.VariableCase,            value: lower_case }
+  - { key: readability-function-cognitive-complexity.IgnoreMacros,  value: true }
+...

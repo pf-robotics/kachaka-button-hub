@@ -1,0 +1,8 @@
+---
+Language: Proto
+AllowShortBlocksOnASingleLine: Never
+BasedOnStyle: Google
+BreakBeforeBraces: Attach
+ColumnLimit: 0
+SpaceBeforeParens: Always
+...

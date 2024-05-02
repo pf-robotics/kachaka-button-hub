@@ -1,0 +1,216 @@
+:root {
+  --light: #ffffff;
+  --blue: #007aff;
+  --kachaka-beige-1: #fffaf3;
+  --kachaka-beige-2: #f4e8db;
+  --kachaka-beige-3: #dfccbb;
+  --kachaka-beige-4: #bfaa9b;
+  --kachaka-beige-5: #8e7569;
+  --kachaka-orange-4: #ff9245;
+  --kachaka-brown: #4a3d3d;
+  --kachaka-gray-1: #eaeef6;
+  --kachaka-gray-2: #ced6ea;
+  --kachaka-gray-3: #a4b0ca;
+  --kachaka-gray-4: #8d98b2;
+  --kachaka-gray-5: #576585;
+  --kachaka-black: #1c2742;
+  --status-success: #47CC9C;
+  --status-danger: #FF5D5D;
+  --cyanus-purple0: #e5ecff;
+  --cyanus-purple1: #cbd9ff;
+  --cyanus-purple2: #9db8ff;
+  --cyanus-purple3: #86a6ff;
+  --cyanus-purple4: #618bff;
+  --cyanus-purple5: #4777f5;
+  --cyanus-purple6: #3257d8;
+  --sky-blue0: #e0f6ff;
+  --sky-blue1: #c2edff;
+  --sky-blue2: #8ed6ff;
+  --sky-blue3: #70cbff;
+  --sky-blue4: #52bdfa;
+  --sky-blue5: #1788c8;
+  --sky-blue6: #005ea1;
+  --mint-green0: #e5fff6;
+  --mint-green1: #8fdabf;
+  --mint-green2: #75d6b3;
+  --mint-green3: #47cc9c;
+  --mint-green4: #37bb8c;
+  --mint-green5: #15a06e;
+  --mint-green6: #005344;
+  --ginger-yellow0: #fdf4d5;
+  --ginger-yellow1: #fbeab1;
+  --ginger-yellow2: #f6e39f;
+  --ginger-yellow3: #f2d87f;
+  --ginger-yellow4: #ebc955;
+  --ginger-yellow5: #ccac3f;
+  --ginger-yellow6: #887c0a;
+  --modern-orange0: #ffe9dd;
+  --modern-orange1: #ffc2a0;
+  --modern-orange2: #ffb68d;
+  --modern-orange3: #ffa471;
+  --modern-orange4: #ff9255;
+  --modern-orange5: #f86638;
+  --modern-orange6: #ed5729;
+  --coral-pink0: #ffefef;
+  --coral-pink1: #ffcccc;
+  --coral-pink2: #ffadad;
+  --coral-pink3: #ff9696;
+  --coral-pink4: #ff7777;
+  --coral-pink5: #ff5e5e;
+  --coral-pink6: #f54b4b;
+
+  --text-main: var(--kachaka-black);
+  --text-sub: var(--kachaka-gray-5);
+  --caption: var(--kachaka-gray-3);
+
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  background-color: var(--kachaka-beige-1);
+}
+
+a:visited {
+  color: #92b1ff;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  min-width: 320px;
+  height: 100svh;
+  color: #555;
+  display: flex;
+  overflow: hidden;
+}
+#root {
+  overflow: auto;
+  width: 100vw;
+  height: 100svh;
+  padding: 1em;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,h2 {
+  text-align: center;
+}
+h1 {
+  font-size: 1.4rem;
+}
+h2 {
+  font-size: 1.2rem;
+}
+h3 {
+  font-size: 1rem;
+  margin: 16px 0 8px;
+}
+
+button {
+  border-radius: 100px;
+  border: 1px solid transparent;
+  padding: 0.4em 1em;
+  background-color: #eee;
+  color: #555;
+  font-size: 0.9em;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+button.primary {
+  background-color: var(--kachaka-black);
+  color: var(--light);
+  border-color: none;
+  min-width: 160px;
+}
+button.icon {
+  background-color: transparent;
+  border-color: transparent;
+  padding: 0.3em;
+}
+button.icon:focus {
+  outline: none;
+}
+
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+button:disabled {
+  color: rgba(85, 85, 85, 0.2);
+  cursor: default;
+}
+button.primary:disabled {
+  color: var(--light);
+  background-color: var(--kachaka-gray-1);
+}
+input:disabled {
+  color: rgba(85, 85, 85, 0.2);
+  border-color: rgba(85, 85, 85, 0.2);
+}
+
+input, select {
+  padding: 0.6em;
+  border-radius: 4px;
+  border: 1px solid grey;
+  font-size: 1rem;
+}
+input[type="range"] {
+  padding: 0;
+}
+code {
+  font-size: 1rem;
+}
+dialog {
+  border: none;
+  box-shadow: 0 0 16px rgba(0,0,0,0.5);
+  border-radius: 8px;
+  background-color: var(--kachaka-beige-1);
+}
+hr {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 0;
+}
+.disabled {
+  color: rgba(85, 85, 85, 0.3);
+}
+.chip {
+  font-size: 0.6em;
+  background-color: rgba(200,200,200,1);
+  padding: 4px 8px;
+  border-radius: 100px;
+}
+
+table {
+  white-space: nowrap;
+  border-collapse: collapse;
+  background-color: #fff;
+}
+table input, table select {
+  padding: 2px 2px;
+  border-radius: 4px;
+  border: none;
+}
+table button {
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+table input[type=checkbox] {
+  transform: scale(1.5);
+  accent-color: var(--sky-blue6);
+}
+th, td {
+  padding: 0.2em 0.5em;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+th {
+  background-color: var(--kachaka-gray-1);
+}
+tr.spacer {
+  background-color: var(--kachaka-beige-1);
+}
+tr.spacer td {
+  border: none;
+}

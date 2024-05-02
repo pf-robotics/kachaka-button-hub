@@ -1,0 +1,13 @@
+button_hub/.build
+button_hub/compile_commands.json
+button_hub/data_index.css.cpp
+button_hub/data_index.html.cpp
+button_hub/data_index.js.cpp
+button_hub/data_index.js.gz.cpp
+button_hub/data_license.txt.gz.cpp
+button_hub/kachaka-api.pb.c
+button_hub/kachaka-api.pb.h
+button_hub/version.hpp
+webui/dist
+webui/node_modules/
+nanopb/venv
