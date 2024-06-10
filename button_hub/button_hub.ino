@@ -11,6 +11,7 @@
 #include "fetch_state.hpp"
 #include "init_setup.hpp"
 #include "ip_resolver.hpp"
+#include "logging.hpp"
 #include "mutex.hpp"
 #include "ota.hpp"
 #include "ping_to_robot.hpp"
@@ -51,19 +52,35 @@ static std::map<KButton, time_t> g_last_beacon_time;
 kb::Mutex g_button_queue_mutex;
 static std::deque<std::pair<KButton, double>> g_button_queue;
 
+bool IsBraveridgeBeacon(const uint8_t uuid[16]) {
+  for (int i = 0; i < sizeof(uuid); i++) {
+    if (uuid[i] != i) {
+      return false;
+    }
+  }
+  return true;
+}
+
 static void BeaconCallback(const char* name, const uint8_t address[6],
                            const uint8_t uuid[16], const uint16_t major,
                            const uint16_t minor, const int8_t tx_power,
                            const int rssi) {
-  Serial.printf(
+  if (!IsBraveridgeBeacon(uuid)) {
+    return;
+  }
+  char beacon_str[128];
+  snprintf(
+      beacon_str, sizeof(beacon_str),
       "Beacon ==> %s "
       "%02x:%02x:%02x:%02x:%02x:%02x, "
       "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x, "
-      "%04x, %04x, %d, %d\n",
+      "%04x, %04x, %d, %d",
       name, address[0], address[1], address[2], address[3], address[4],
       address[5], uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6],
       uuid[7], uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13],
       uuid[14], uuid[15], major, minor, tx_power, rssi);
+  logging::Log("Beacon: %s", beacon_str);
+  Serial.println(beacon_str);
 
   const double estimated_distance = std::pow(10.0, (tx_power - rssi) / 20.0);
 
@@ -73,6 +90,7 @@ static void BeaconCallback(const char* name, const uint8_t address[6],
     g_button_queue.emplace_back(button, estimated_distance);
   } else {
     Serial.println("Discarding button event due to lock failure");
+    logging::Log("Beacon: Discarding button event due to lock failure");
   }
 }
 
@@ -97,6 +115,8 @@ static void HandleButtonPressed(const KButton& button,
   Command command;
   if (g_command_table.GetCommandByButton(button, &command)) {
     if (const kb::LockGuard lock(api_mutex); lock) {
+      logging::Log("Button pressed: %s",
+                   to_json::ConvertCommand(command).c_str());
       beep::PlayCommandSent();
       screen::DrawCommandSent(true);
       bool ok = send_command::SendCommand(g_robot, command);
@@ -116,6 +136,7 @@ static void SendWifiRssi() {
 }
 
 static void CheckReboot() {
+  // a.m. 5:00
   static int prev_hour = -1;
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
@@ -125,15 +146,26 @@ static void CheckReboot() {
                 timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour,
                 timeinfo.tm_min, timeinfo.tm_sec);
   if (prev_hour == 4 && timeinfo.tm_hour == 5) {
-    Serial.println("Rebooting ...");
+    Serial.println("Rebooting due to a.m. 5 ...");
     ESP.restart();
   }
+  prev_hour = timeinfo.tm_hour;
 
+  // WiFi connection
+  static int64_t last_connected_time = millis();
+  if (WiFi.status() == WL_CONNECTED) {
+    last_connected_time = millis();
+  } else {
+    if (millis() - last_connected_time > 3 * 60 * 1000) {
+      Serial.println("Rebooting due to disconnection ...");
+      ESP.restart();
+    }
+  }
+
+  // Stats
   Serial.printf("Free heap: now=%6.1f kb, min=%6.1f kb\n",
                 esp_get_free_heap_size() / 1000.0,
                 esp_get_minimum_free_heap_size() / 1000.0);
-
-  prev_hour = timeinfo.tm_hour;
 }
 
 static void CountDownReboot() {
@@ -167,7 +199,7 @@ static bluetooth::SetupTicker g_bluetooth_setup(
     kBluetoothSetupIntervalMsec,
     []() {
       return g_robot.has_robot_version && g_robot.has_shelves &&
-             g_robot.has_locations;
+             g_robot.has_locations && g_robot.has_shortcuts;
     },
     &BeaconCallback);
 static TickTwo g_wifi_rssi_timer(SendWifiRssi, kWiFiSignalUpdateIntervalMSec);
@@ -205,13 +237,9 @@ void setup() {
   beep::Begin(g_settings.GetBeepVolume());
   screen::Begin(g_settings.GetScreenBrightness());
 
-  M5.Lcd.setFont(&lgfx::fonts::lgfxJapanGothicP_24);
-  M5.Lcd.printf(
-      "Wi-Fi (%s) に接続中です。設定を変えるにはボタンを押してください。",
-      g_settings.GetWiFiSsid().c_str());
-  screen::DrawButtonUsage(1, "Wi-Fi設定");
-  screen::DrawButtonUsage(2, nullptr);
-  screen::DrawButtonUsage(3, nullptr);
+  logging::Begin(g_settings.GetNextLoggingId());
+  logging::Log("Start");
+
   const bool continue_to_app = ConnectToWiFi(
       g_settings.GetWiFiSsid().c_str(), g_settings.GetWiFiPass().c_str(), []() {
         M5.update();
@@ -369,9 +397,10 @@ void loop() {
         if (M5.BtnC.wasPressed()) {
           HandleButtonPressed(KButton(M5Button(3)), -1);
         }
-        screen::DrawStatusInMainPage(
-            !fetch_state::IsCompleted(), g_robot.has_robot_version,
-            g_robot.has_shelves, g_robot.has_locations, need_redraw);
+        screen::DrawStatusInMainPage(!fetch_state::IsCompleted(),
+                                     g_robot.has_robot_version,
+                                     g_robot.has_shelves, g_robot.has_locations,
+                                     g_robot.has_shortcuts, need_redraw);
         ping_to_robot::Update();
         break;
       case Page::kOta:
@@ -389,8 +418,8 @@ void loop() {
     if (const kb::LockGuard lock(g_button_queue_mutex); lock) {
       if (!g_button_queue.empty()) {
         const auto& [button, estimated_distance] = g_button_queue.front();
-        g_button_queue.pop_front();
         HandleButtonPressed(button, estimated_distance);
+        g_button_queue.pop_front();
       }
     } else {
       Serial.println("Failed to lock button_queue mutex");
@@ -407,5 +436,6 @@ void loop() {
     g_clock_timer.update();
     g_count_down_reboot_timer.update();
   }
+  logging::Update();
   vTaskDelay(50);
 }

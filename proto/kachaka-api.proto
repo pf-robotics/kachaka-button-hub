@@ -250,6 +250,8 @@ message Command {
     SpeakCommand speak_command = 12;
     MoveToPoseCommand move_to_pose_command = 13;
     LockCommand lock_command = 15;
+    MoveForwardCommand move_forward_command = 16;
+    RotateInPlaceCommand rotate_in_place_command = 17;
   }
 }
 
@@ -291,6 +293,14 @@ message MoveToPoseCommand {
 
 message LockCommand {
   double duration_sec = 1;
+}
+
+message MoveForwardCommand {
+  double distance_meter = 1;
+}
+
+message RotateInPlaceCommand {
+  double angle_radian = 1;
 }
 
 enum CommandState {
@@ -587,6 +597,24 @@ message ImportMapResponse {
   string map_id = 2;
 }
 
+message Shortcut {
+  string id = 1;
+  string name = 3;
+}
+
+message GetShortcutsResponse {
+  Metadata metadata = 1;
+  repeated Shortcut shortcuts = 2;
+}
+
+message StartShortcutCommandRequest {
+  string target_shortcut_id = 1;
+}
+
+message StartShortcutCommandResponse {
+  Result result = 1;
+}
+
 // History
 message History {
   string id = 1;
@@ -644,6 +672,8 @@ service KachakaApi {
   rpc LoadMapPreview (LoadMapPreviewRequest) returns (LoadMapPreviewResponse);
   rpc ExportMap (ExportMapRequest) returns (stream ExportMapResponse);
   rpc ImportMap (stream ImportMapRequest) returns (ImportMapResponse);
+  rpc GetShortcuts (GetRequest) returns (GetShortcutsResponse);
+  rpc StartShortcutCommand (StartShortcutCommandRequest) returns (StartShortcutCommandResponse);
   rpc GetHistoryList (GetRequest) returns (GetHistoryListResponse);
   rpc GetStaticTransform (GetRequest) returns (GetStaticTransformResponse);
   rpc GetDynamicTransform (EmptyRequest) returns (stream GetDynamicTransformResponse);

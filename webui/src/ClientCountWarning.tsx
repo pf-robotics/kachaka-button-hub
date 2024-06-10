@@ -3,8 +3,8 @@ export function ClientCountWarning({ clientCount }: { clientCount: number }) {
     <div
       style={{
         position: "fixed",
-        top: 8,
-        left: 8,
+        bottom: 62 + 16,
+        right: 8,
         backgroundColor: "var(--ginger-yellow1)",
         color: "var(--status-danger)",
         padding: 16,

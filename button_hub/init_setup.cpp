@@ -38,6 +38,17 @@ void InitialSetup::RunLoop() {
       break;
   }
   prev_state_ = next_state_;
+
+  // Reboot if any button is pressed
+  M5.update();
+  if (M5.BtnA.wasPressed() || M5.BtnB.wasPressed() || M5.BtnC.wasPressed()) {
+    M5.Lcd.fillScreen(TFT_BLACK);
+    M5.Lcd.setFont(&lgfx::fonts::lgfxJapanGothicP_24);
+    M5.Lcd.setTextDatum(CC_DATUM);
+    M5.Lcd.setTextColor(TFT_WHITE);
+    M5.Lcd.drawString("再起動します", M5.Lcd.width() / 2, M5.Lcd.height() / 2);
+    ESP.restart();
+  }
 }
 
 /* static */ void InitialSetup::DrawScreen(const State state) {

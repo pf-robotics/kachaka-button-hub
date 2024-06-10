@@ -74,6 +74,24 @@ static void FetchImpl(RobotInfoHolder& out) {
       delay(3000);
     }
   }
+  delay(100);
+  done = false;
+  while (!done) {
+    auto [code, shortcuts] = api::GetShortcuts();
+    if (code == api::ResultCode::kOk) {
+      out.shortcuts = std::move(shortcuts);
+      for (const auto& [id, name] : out.shortcuts) {
+        Serial.printf(" * %s: %s\n", id.c_str(), name.c_str());
+      }
+      done = true;
+      out.has_shortcuts = true;
+      server::SendToWs(to_json::ConvertRobotInfo(out));
+    } else {
+      Serial.printf("Failed to get shortcuts: %s\n",
+                    api::ResultCodeToString(code));
+      delay(3000);
+    }
+  }
   {
     const kb::LockGuard lock(g_mutex);
     g_state = State::kCompleted;

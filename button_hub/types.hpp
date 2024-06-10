@@ -13,6 +13,11 @@ struct Location {
   String name;
 };
 
+struct Shortcut {
+  String id;
+  String name;
+};
+
 struct RobotInfoHolder {
   bool has_robot_version = false;
   String robot_version;
@@ -20,4 +25,6 @@ struct RobotInfoHolder {
   std::vector<Shelf> shelves;
   bool has_locations = false;
   std::vector<Location> locations;
+  bool has_shortcuts = false;
+  std::vector<Shortcut> shortcuts;
 };

@@ -81,23 +81,39 @@ body {
   overflow: hidden;
 }
 #root {
-  overflow: auto;
+  overflow: hidden;
   width: 100vw;
   height: 100svh;
-  padding: 1em;
-  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  margin-bottom: 62px;
   display: flex;
   flex-direction: column;
 }
 
+h1 {
+  position: sticky;
+  top: 0;
+  width: 100vw;
+  padding: 8px 0;
+  margin: 0;
+  background-color: var(--kachaka-beige-1);
+  border-bottom: 1px solid #ddd;
+  z-index: 1;
+}
 h1,h2 {
   text-align: center;
 }
 h1 {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
 }
 h2 {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 }
 h3 {
   font-size: 1rem;
@@ -213,4 +229,40 @@ tr.spacer {
 }
 tr.spacer td {
   border: none;
+}
+
+.bottomnav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  display: flex;
+  justify-content: space-around;
+  background-color: var(--kachaka-beige-1);
+  box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+}
+.bottomnav div {
+  flex: 1;
+  padding: 0.5em 1em;
+  border-radius: 0;
+  border: none;
+  background-color: transparent;
+  color: var(--kachaka-gray-5);
+  font-size: 1.2em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.bottomnav div.selected {
+  background-color: var(--kachaka-beige-2);
+  font-weight: bold;
+}
+.bottomnav div svg {
+  fill: var(--kachaka-gray-5);
+  width: 24px;
+  height: 24px;
+}
+.bottomnav div span {
+  font-size: 0.6em;
+  margin-top: 0.2em;
 }

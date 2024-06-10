@@ -138,8 +138,11 @@ enum class CommandType : uint16_t {
   MOVE_TO_POSE = 13,
   REGISTER_SHELF = 14,
   LOCK = 15,
+  MOVE_FORWARD = 16,
+  ROTATE_IN_PLACE = 17,
   PROCEED = 1000,
   CANCEL_COMMAND = 1001,
+  SHORTCUT = 1002,
 };
 
 struct Command {
@@ -163,6 +166,9 @@ struct Command {
     String task_name;
     String task_arg;
   } exec_task;
+  struct {
+    String target_shortcut_id;
+  } shortcut;
   struct {
     String text;
   } speak;

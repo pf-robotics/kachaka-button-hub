@@ -29,6 +29,16 @@ static const String& ResolveLocationName(const RobotInfoHolder& robot_info,
   return location_id;
 }
 
+static const String& ResolveShortcutName(const RobotInfoHolder& robot_info,
+                                         const String& shortcut_id) {
+  for (const auto& [id, name] : robot_info.shortcuts) {
+    if (id == shortcut_id) {
+      return name;
+    }
+  }
+  return shortcut_id;
+}
+
 static String GenerateTitle(const RobotInfoHolder& robot_info,
                             const Command& command) {
   switch (command.type) {
@@ -42,10 +52,16 @@ static String GenerateTitle(const RobotInfoHolder& robot_info,
       return ResolveShelfName(robot_info,
                               command.return_shelf.target_shelf_id) +
              "を片付ける";
+    case CommandType::UNDOCK_SHELF:
+      return "持っている家具をその場に置く";
     case CommandType::MOVE_TO_LOCATION:
       return ResolveLocationName(robot_info,
                                  command.move_to_location.target_location_id) +
              "に移動";
+    case CommandType::SHORTCUT:
+      return ResolveShortcutName(robot_info,
+                                 command.shortcut.target_shortcut_id) +
+             "を実行";
     case CommandType::RETURN_HOME:
       return "充電ドックに戻る";
     case CommandType::SPEAK:
@@ -70,6 +86,11 @@ bool SendCommand(const RobotInfoHolder& robot_info, const Command& command) {
           command.tts_on_success.c_str(), command.deferrable,
           GenerateTitle(robot_info, command).c_str());
       break;
+    case CommandType::UNDOCK_SHELF:
+      result = api::UndockShelf(
+          command.cancel_all, command.tts_on_success.c_str(),
+          command.deferrable, GenerateTitle(robot_info, command).c_str());
+      break;
     case CommandType::MOVE_TO_LOCATION:
       result = api::MoveToLocation(
           command.move_to_location.target_location_id.c_str(),
@@ -80,6 +101,12 @@ bool SendCommand(const RobotInfoHolder& robot_info, const Command& command) {
       result = api::ReturnHome(
           command.cancel_all, command.tts_on_success.c_str(),
           command.deferrable, GenerateTitle(robot_info, command).c_str());
+      break;
+    case CommandType::SHORTCUT:
+      result = api::StartShortcut(
+          command.shortcut.target_shortcut_id.c_str(), command.cancel_all,
+          command.tts_on_success.c_str(), command.deferrable,
+          GenerateTitle(robot_info, command).c_str());
       break;
     case CommandType::SPEAK:
       result = api::Speak(command.speak.text.c_str(), command.cancel_all,
@@ -103,7 +130,7 @@ bool SendCommand(const RobotInfoHolder& robot_info, const Command& command) {
   }
   if (command.lock_duration_sec > 0.001) {
     Serial.printf("Lock: %d sec\n", command.lock_duration_sec);
-    vTaskDelay(100);
+    delay(1000);
     api::Lock(command.lock_duration_sec,
               (String(int(command.lock_duration_sec)) + "秒の待機").c_str());
   }

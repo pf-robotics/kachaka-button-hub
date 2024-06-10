@@ -1,21 +1,21 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 
-import { MdSettings } from "react-icons/md";
-
-import { useKachakaButtonHub, useLocalStorageState } from "./hooks";
+import { useKachakaButtonHub } from "./hooks";
 
 import { Button, CommandType, Command, GetButtonId } from "./types";
 import { Backdrop } from "./Backdrop";
 import { ClientCountWarning } from "./ClientCountWarning";
 import { CommandEditor } from "./CommandEditor";
-import { Icon } from "./Icon";
 import { MainCardUi } from "./MainCardUi";
 import { InitialUi } from "./InitialUi";
 import { Sheet } from "./Sheet";
 import { Modal } from "./Modal";
 import { SettingPage } from "./SettingPage";
 import { WiFiSignalLevel } from "./WiFiSignalLevel";
-import { getHubHost } from "./utils";
+import { getHubHost, isValidVersion, getIntVersion } from "./utils";
+import { Page, BottomNav } from "./BottomNav";
+import { LogList } from "./LogList";
+import { TopHeader } from "./TopHeader";
 
 const HUB_HOST = getHubHost();
 
@@ -33,7 +33,7 @@ export function App() {
     [buttons],
   );
 
-  const [enableSheetUi, setEnableSheetUi] = useState(false);
+  const [page, setPage] = useState<Page>("home");
   const [progressCount, setProgressCount] = useState(0);
 
   const editCommand = useCallback((button: Button, command: Command) => {
@@ -76,6 +76,13 @@ export function App() {
       .catch((err) => console.error(err))
       .then(() => setProgressCount((prev) => prev - 1));
   }, []);
+  const deleteLog = useCallback((path: string) => {
+    setProgressCount((prev) => prev + 1);
+    return fetch(`http://${HUB_HOST}/log`, {
+      method: "DELETE",
+      body: path,
+    }).then(() => setProgressCount((prev) => prev - 1));
+  }, []);
 
   const [editingButton, setEditingButton] = useState<Button>();
   const newCommand = useMemo<Command>(() => {
@@ -95,76 +102,71 @@ export function App() {
     [editingButton, editCommand],
   );
 
-  const [openSettings, setOpenSettings] = useState(false);
-  const [showAllIBeacons, setShowAllIBeacons] = useLocalStorageState(
-    "show_all_i_beacon",
-    false,
-  );
-  useEffect(() => {
-    if (!online) {
-      setOpenSettings(false);
+  const robotVersionInt = useMemo(() => {
+    const version = robotInfo?.robot_version;
+    if (version === undefined || !isValidVersion(version)) {
+      return undefined;
     }
-  }, [online]);
-
-  const useLockAndProceed = useMemo(() => {
-    if (!robotInfo?.robot_version?.match(/^\d+\.\d+\.\d+$/)) {
-      return true;
-    }
-    return (
-      (robotInfo?.robot_version
-        ?.split(".")
-        .map((x) => parseInt(x, 10))
-        .reduce((prev, cur) => prev * 1000 + cur, 0) ?? 0) > 2005999
-    );
+    return getIntVersion(version);
   }, [robotInfo?.robot_version]);
+  const useLockAndProceed =
+    robotVersionInt === undefined || robotVersionInt >= getIntVersion("2.6.0");
+  const enableShortcutFeature =
+    robotVersionInt === undefined || robotVersionInt >= getIntVersion("3.1.0");
 
   return (
     <>
-      <h1>カチャカボタンHub</h1>
-      {robotInfo === undefined ||
-      robotInfo.robot_version === undefined ||
-      robotInfo.shelves === undefined ||
-      robotInfo.locations === undefined ? (
-        <InitialUi
-          hubHost={HUB_HOST}
-          robotInfo={robotInfo}
-          settings={settings}
-        />
-      ) : enableSheetUi ? (
-        <div>
+      <TopHeader>
+        {page === "home"
+          ? "カチャカボタンHub"
+          : page === "sheet"
+            ? "表形式"
+            : page === "info"
+              ? "デバッグログ"
+              : page === "settings"
+                ? "設定"
+                : ""}
+      </TopHeader>
+      <div className="content">
+        {page === "home" ? (
+          robotInfo === undefined ||
+          robotInfo.robot_version === undefined ||
+          robotInfo.shelves === undefined ||
+          robotInfo.locations === undefined ||
+          robotInfo.shortcuts === undefined ? (
+            <InitialUi
+              hubHost={HUB_HOST}
+              robotInfo={robotInfo}
+              settings={settings}
+            />
+          ) : (
+            <MainCardUi
+              buttons={buttons}
+              commands={commands}
+              buttonIdToNameMap={buttonIdToNameMap}
+              robotInfo={robotInfo}
+              onEdit={editCommand}
+              onDelete={deleteCommand}
+              onSetButtonName={setButtonName}
+              setEditingButton={setEditingButton}
+              onDeleteButtonName={deleteButtonName}
+              useLockAndProceed={useLockAndProceed}
+              enableShortcutFeature={enableShortcutFeature}
+            />
+          )
+        ) : page === "sheet" ? (
           <Sheet
             commands={commands}
             buttonIdToNameMap={buttonIdToNameMap}
             robotInfo={robotInfo}
+            enableShortcutFeature={enableShortcutFeature}
             onEdit={editCommand}
             onDelete={deleteCommand}
             onSetButtonName={setButtonName}
           />
-        </div>
-      ) : (
-        <MainCardUi
-          buttons={buttons}
-          commands={commands}
-          buttonIdToNameMap={buttonIdToNameMap}
-          robotInfo={robotInfo}
-          onEdit={editCommand}
-          onDelete={deleteCommand}
-          onSetButtonName={setButtonName}
-          setEditingButton={setEditingButton}
-          onDeleteButtonName={deleteButtonName}
-          showAllIBeacons={showAllIBeacons}
-          useLockAndProceed={useLockAndProceed}
-        />
-      )}
-      <button
-        className="icon"
-        style={{ position: "absolute", top: 32, right: 16 }}
-        onClick={() => setOpenSettings((prev) => !prev)}
-      >
-        <Icon children={<MdSettings />} />
-      </button>
-      <Modal open={openSettings} onClose={() => setOpenSettings(false)}>
-        {openSettings && (
+        ) : page === "info" ? (
+          <LogList hubHost={HUB_HOST} onDelete={deleteLog} />
+        ) : page === "settings" ? (
           <SettingPage
             hubHost={HUB_HOST}
             hubVersion={hubInfo?.hub_version}
@@ -172,13 +174,11 @@ export function App() {
             otaLabel={hubInfo?.ota_label}
             settings={settings}
             robotHost={settings?.robot_host}
-            enableSheetUi={enableSheetUi}
-            setEnableSheetUi={setEnableSheetUi}
-            showAllIBeacons={showAllIBeacons}
-            setShowAllIBeacons={setShowAllIBeacons}
           />
-        )}
-      </Modal>
+        ) : null}
+      </div>
+      <BottomNav page={page} onPageChange={setPage} />
+
       <Modal open={!!editingButton} onClose={() => setEditingButton(undefined)}>
         {editingButton && (
           <>
@@ -192,12 +192,21 @@ export function App() {
               robotInfo={robotInfo}
               onSubmit={addNewCommand}
               useLockAndProceed={useLockAndProceed}
+              enableShortcutFeature={enableShortcutFeature}
               closeDialog={() => setEditingButton(undefined)}
             />
           </>
         )}
       </Modal>
-      <div style={{ position: "fixed", top: 2, right: 16 }}>
+      <div
+        style={{
+          position: "fixed",
+          top: 14,
+          right: 16,
+          zIndex: 1,
+          fontSize: "1.2em",
+        }}
+      >
         <WiFiSignalLevel online={online} rssi={wifiRssi} />
       </div>
       {hubInfo && hubInfo.client_count > 2 && (

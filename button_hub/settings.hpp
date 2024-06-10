@@ -35,6 +35,7 @@ class Settings {
 
   // Non-settings
   int GetNextButtonId();
+  int GetNextLoggingId();
   int IncrementOtaFailCount();
   void ClearOtaFailCount();
   int GetOtaFailCount();

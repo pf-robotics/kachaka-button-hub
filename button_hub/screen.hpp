@@ -6,11 +6,12 @@ namespace screen {
 
 void Begin(int brightness);
 
+void DrawWiFiConnectingPage(bool init);
 void DrawMainPage(const char* ssid, const char* hub_host,
                   const char* robot_host);
 void DrawStatusInMainPage(bool fetching, bool has_robot_version,
                           bool has_shelves, bool has_locations,
-                          bool need_redraw);
+                          bool has_shortcuts, bool need_redraw);
 void DrawPingResult(bool ok, float time_ms, int ng_count);
 void DrawCommandSent(bool sent);
 

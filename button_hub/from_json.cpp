@@ -88,6 +88,14 @@ bool ConvertCommandJson(JsonObject& root, KButton& out_button,
       out_command.lock_duration_sec = lock_duration_sec;
       break;
     }
+    case static_cast<int>(CommandType::UNDOCK_SHELF): {
+      out_command.type = CommandType::UNDOCK_SHELF;
+      out_command.cancel_all = cancel_all;
+      out_command.tts_on_success = std::move(tts_on_success);
+      out_command.deferrable = deferrable;
+      out_command.lock_duration_sec = lock_duration_sec;
+      break;
+    }
     case static_cast<int>(CommandType::MOVE_TO_LOCATION): {
       if (!command.containsKey("move_to_location")) {
         Serial.println("ERROR: Invalid JSON");
@@ -108,6 +116,24 @@ bool ConvertCommandJson(JsonObject& root, KButton& out_button,
     }
     case static_cast<int>(CommandType::RETURN_HOME): {
       out_command.type = CommandType::RETURN_HOME;
+      out_command.cancel_all = cancel_all;
+      out_command.tts_on_success = std::move(tts_on_success);
+      out_command.deferrable = deferrable;
+      out_command.lock_duration_sec = lock_duration_sec;
+      break;
+    }
+    case static_cast<int>(CommandType::SHORTCUT): {
+      if (!command.containsKey("shortcut")) {
+        Serial.println("ERROR: Invalid JSON");
+        return false;
+      }
+      const JsonObject& shortcut = command["shortcut"];
+      if (!shortcut.containsKey("shortcut_id")) {
+        Serial.println("ERROR: Invalid JSON");
+        return false;
+      }
+      out_command.type = CommandType::SHORTCUT;
+      out_command.shortcut = {shortcut["shortcut_id"]};
       out_command.cancel_all = cancel_all;
       out_command.tts_on_success = std::move(tts_on_success);
       out_command.deferrable = deferrable;

@@ -8,6 +8,7 @@
 #include "mutex.hpp"
 #include "server_commands.hpp"
 #include "server_info.hpp"
+#include "server_logging.hpp"
 #include "settings.hpp"
 #include "to_json.hpp"
 #include "types.hpp"
@@ -275,6 +276,23 @@ static void SetAppHandler(AsyncWebServer& server, AsyncWebSocket& ws,
       server, "/commands", HTTP_DELETE,
       [&command_table](AsyncWebServerRequest* request, const String& body) {
         HandleDeleteCommand(request, body, command_table);
+      });
+
+  RegisterReadEntry(
+      server, "/log", HTTP_GET, [](AsyncWebServerRequest* request) {
+        AsyncWebParameter* path_param = request->getParam("path");
+        if (path_param) {
+          AsyncWebParameter* download_param = request->getParam("download");
+          HandleLoggingGet(request, path_param->value(),
+                           download_param && download_param->value() == "true");
+        } else {
+          HandleLoggingList(request);
+        }
+      });
+  RegisterWriteEntry(
+      server, "/log", HTTP_DELETE,
+      [&command_table](AsyncWebServerRequest* request, const String& body) {
+        HandleLoggingDelete(request, body);
       });
 
   RegisterReadEntry(server, "/reboot", HTTP_GET,

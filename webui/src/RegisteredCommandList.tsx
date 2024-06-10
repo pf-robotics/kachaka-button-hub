@@ -11,6 +11,7 @@ export function RegisteredCommandList({
   onDelete,
   onSetButtonName,
   useLockAndProceed,
+  enableShortcutFeature,
 }: {
   commands: { button: Button; command: Command }[] | undefined;
   robotInfo: RobotInfo | undefined;
@@ -20,6 +21,7 @@ export function RegisteredCommandList({
   onDelete: (button: Button) => void;
   onSetButtonName: (button: Button, name: string) => Promise<void>;
   useLockAndProceed: boolean;
+  enableShortcutFeature: boolean;
 }) {
   if (commands === undefined) {
     return (
@@ -50,6 +52,7 @@ export function RegisteredCommandList({
               onDelete={onDelete}
               onSetButtonName={onSetButtonName}
               useLockAndProceed={useLockAndProceed}
+              enableShortcutFeature={enableShortcutFeature}
             />
           </Box>
         ))}

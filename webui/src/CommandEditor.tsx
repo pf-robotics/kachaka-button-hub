@@ -7,10 +7,12 @@ function Checkbox({
   checked,
   children,
   onSelect,
+  disabled,
 }: {
   checked: boolean;
   children: React.ReactNode;
   onSelect: () => void;
+  disabled?: boolean;
 }) {
   return (
     <label style={{ fontWeight: checked ? "bold" : undefined }}>
@@ -23,6 +25,7 @@ function Checkbox({
           }
         }}
         style={{ marginRight: 8 }}
+        disabled={disabled}
       />
       {children}
     </label>
@@ -34,16 +37,18 @@ function Item({
   command,
   onSelect,
   children,
+  disabled,
 }: {
   commandType: CommandType;
   command: Command;
   onSelect: () => void;
   children: React.ReactNode;
+  disabled?: boolean;
 }) {
   const selected = command.type === commandType;
   return (
-    <div>
-      <Checkbox checked={selected} onSelect={onSelect}>
+    <div className={disabled === true ? "disabled" : undefined}>
+      <Checkbox checked={selected} onSelect={onSelect} disabled={disabled}>
         {children}
       </Checkbox>
     </div>
@@ -55,12 +60,14 @@ export function CommandEditor({
   robotInfo,
   onSubmit,
   useLockAndProceed,
+  enableShortcutFeature,
   closeDialog,
 }: {
   command: Command;
   robotInfo: RobotInfo | undefined;
   onSubmit: (command: Command) => void;
   useLockAndProceed: boolean;
+  enableShortcutFeature: boolean;
   closeDialog: () => void;
 }) {
   const [selectedCommandType, setSelectedCommandType] = useState(command.type);
@@ -68,8 +75,10 @@ export function CommandEditor({
     newCommand,
     moveShelf,
     returnShelf,
+    undockShelf,
     moveToLocation,
     returnHome,
+    shortcut,
     speak,
     cancelCommand,
     proceed,
@@ -79,6 +88,7 @@ export function CommandEditor({
     lockDurationSecInput,
     modified,
     disableOptions,
+    disableShortcut,
   } = useCommandEditor(command, selectedCommandType, robotInfo);
   const handleSubmit = useCallback(() => {
     onSubmit(newCommand);
@@ -110,6 +120,13 @@ export function CommandEditor({
           {returnShelf}
         </Item>
         <Item
+          commandType={CommandType.UNDOCK_SHELF}
+          command={newCommand}
+          onSelect={() => setSelectedCommandType(CommandType.UNDOCK_SHELF)}
+        >
+          {undockShelf}
+        </Item>
+        <Item
           commandType={CommandType.MOVE_TO_LOCATION}
           command={newCommand}
           onSelect={() => setSelectedCommandType(CommandType.MOVE_TO_LOCATION)}
@@ -123,6 +140,16 @@ export function CommandEditor({
         >
           {returnHome}
         </Item>
+        {enableShortcutFeature && (
+          <Item
+            commandType={CommandType.SHORTCUT}
+            command={newCommand}
+            onSelect={() => setSelectedCommandType(CommandType.SHORTCUT)}
+            disabled={disableShortcut}
+          >
+            {shortcut}
+          </Item>
+        )}
         <Item
           commandType={CommandType.SPEAK}
           command={newCommand}

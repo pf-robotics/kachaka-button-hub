@@ -26,6 +26,13 @@ export function CommandText({
     },
     [robotInfo],
   );
+  const lookupShortcutName = useCallback(
+    (shortcutId: string) => {
+      const shortcut = robotInfo?.shortcuts?.find((l) => l.id === shortcutId);
+      return shortcut?.name ?? "(不明なショートカット)";
+    },
+    [robotInfo],
+  );
 
   if (command.type === CommandType.MOVE_SHELF) {
     return (
@@ -41,6 +48,12 @@ export function CommandText({
       (command.tts_on_success ? `、「${command.tts_on_success}」と発話` : "る")
     );
   }
+  if (command.type === CommandType.UNDOCK_SHELF) {
+    return (
+      `持っている家具をその場に置` +
+      (command.tts_on_success ? `き、「${command.tts_on_success}」と発話` : "く")
+    );
+  }
   if (command.type === CommandType.MOVE_TO_LOCATION) {
     return (
       `${lookupLocationName(command.move_to_location.location_id)}に移動` +
@@ -53,6 +66,11 @@ export function CommandText({
       (command.tts_on_success
         ? `り、「${command.tts_on_success}」と発話`
         : "る")
+    );
+  }
+  if (command.type === CommandType.SHORTCUT) {
+    return (
+      `ショートカット ${lookupShortcutName(command.shortcut.shortcut_id)} を実行`
     );
   }
   if (command.type === CommandType.SPEAK) {

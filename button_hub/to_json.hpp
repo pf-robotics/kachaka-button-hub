@@ -17,6 +17,7 @@ String ConvertSettings(const Settings& settings);
 String ConvertObservedButtons(
     const std::deque<ObservedButton>& observed_buttons,
     const std::map<KButton, String>& button_names);
+String ConvertCommand(const Command& command);
 String ConvertCommands(const std::map<KButton, Command>& commands);
 
 }  // namespace to_json

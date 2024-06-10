@@ -24,6 +24,7 @@ export function RegisteredCommand({
   onDelete,
   onSetButtonName,
   useLockAndProceed,
+  enableShortcutFeature,
 }: {
   name: string | undefined;
   button: Button;
@@ -34,6 +35,7 @@ export function RegisteredCommand({
   onDelete: (button: Button) => void;
   onSetButtonName: (button: Button, name: string) => Promise<void>;
   useLockAndProceed: boolean;
+  enableShortcutFeature: boolean;
 }) {
   const [openEditor, setOpenEditor] = useState(false);
 
@@ -122,6 +124,7 @@ export function RegisteredCommand({
           robotInfo={robotInfo}
           onSubmit={handleEdit}
           useLockAndProceed={useLockAndProceed}
+          enableShortcutFeature={enableShortcutFeature}
           closeDialog={() => setOpenEditor(false)}
         />
       </Modal>

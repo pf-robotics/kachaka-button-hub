@@ -15,8 +15,8 @@ export function MainCardUi({
   onSetButtonName,
   onDeleteButtonName,
   setEditingButton,
-  showAllIBeacons,
   useLockAndProceed,
+  enableShortcutFeature,
 }: {
   buttons: Button[] | undefined;
   commands: { button: Button; command: Command }[] | undefined;
@@ -27,8 +27,8 @@ export function MainCardUi({
   onSetButtonName: (button: Button, name: string) => Promise<void>;
   onDeleteButtonName: (button: Button) => Promise<void>;
   setEditingButton: (button: Button) => void;
-  showAllIBeacons: boolean;
   useLockAndProceed: boolean;
+  enableShortcutFeature: boolean;
 }) {
   const registeredButtonIds = useMemo(
     () => (commands ?? []).map(({ button }) => GetButtonId(button)),
@@ -48,14 +48,7 @@ export function MainCardUi({
   );
 
   return (
-    <div
-      style={{
-        width: "100%",
-        maxWidth: 540,
-        marginBottom: 32,
-        alignSelf: "center",
-      }}
-    >
+    <div style={{ width: "100%", maxWidth: 540, alignSelf: "center" }}>
       <RegisteredCommandList
         commands={commands}
         robotInfo={robotInfo}
@@ -65,12 +58,12 @@ export function MainCardUi({
         onDelete={onDelete}
         onSetButtonName={onSetButtonName}
         useLockAndProceed={useLockAndProceed}
+        enableShortcutFeature={enableShortcutFeature}
       />
       <div style={{ height: "1em" }} />
       <ObservedButtonList
         buttons={buttons}
         registeredButtonIds={registeredButtonIds}
-        showAllIBeacons={showAllIBeacons}
         onRegister={(button) => setEditingButton(button)}
         onSetButtonName={onSetButtonName}
         onDeleteButtonName={onDeleteButtonName}

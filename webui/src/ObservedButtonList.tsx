@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-import { Button, GetButtonId, IsBraveridgeButton } from "./types";
+import { Button, GetButtonId } from "./types";
 import { ObservedButton } from "./ObservedButton";
 
 function isBeaconButton(button: Button) {
@@ -33,14 +33,12 @@ function compareButtonSortKeys(lhs: Button, rhs: Button) {
 export function ObservedButtonList({
   buttons,
   registeredButtonIds,
-  showAllIBeacons,
   onRegister,
   onSetButtonName,
   onDeleteButtonName,
 }: {
   buttons: Button[] | undefined;
   registeredButtonIds: string[];
-  showAllIBeacons: boolean;
   onRegister: (button: Button) => void;
   onSetButtonName: (button: Button, name: string) => Promise<void>;
   onDeleteButtonName: (button: Button) => Promise<void>;
@@ -51,16 +49,6 @@ export function ObservedButtonList({
     const handle = setInterval(() => setReloadCount((prev) => prev + 1), 1000);
     return () => clearInterval(handle);
   }, []);
-
-  const shouldShow = (button: Button) => {
-    if ("apple_i_beacon" in button) {
-      return IsBraveridgeButton(button) || showAllIBeacons;
-    }
-    if ("m5_button" in button) {
-      return true;
-    }
-    return false;
-  };
 
   if (buttons === undefined) {
     return (
@@ -79,7 +67,7 @@ export function ObservedButtonList({
             （ボタンを押すと、ここに表示されます）
           </p>
         ) : null}
-        {buttons.filter(shouldShow).sort(compareButtonSortKeys).map((button) => {
+        {buttons.sort(compareButtonSortKeys).map((button) => {
           const id = GetButtonId(button);
           const registerred = registeredButtonIds.includes(id);
           if (registerred) {

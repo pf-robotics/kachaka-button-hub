@@ -10,6 +10,7 @@ export function SheetRow({
   button,
   command,
   robotInfo,
+  enableShortcutFeature,
   onEdit,
   onDelete,
 }: {
@@ -19,6 +20,7 @@ export function SheetRow({
   button: Button;
   command: Command;
   robotInfo: RobotInfo | undefined;
+  enableShortcutFeature: boolean;
   onEdit: (button: Button, command: Command) => void;
   onDelete: (button: Button) => void;
 }) {
@@ -29,8 +31,10 @@ export function SheetRow({
     newCommand,
     moveShelf,
     returnShelf,
+    undockShelf,
     moveToLocation,
     returnHome,
+    shortcut,
     speak,
     cancelCommand,
     proceed,
@@ -40,6 +44,7 @@ export function SheetRow({
     lockDurationSecInput,
     modified,
     disableOptions,
+    disableShortcut,
   } = useCommandEditor(command, selectedCommandType, robotInfo);
   const handleEdit = useCallback(
     () => onEdit(button, newCommand),
@@ -76,8 +81,14 @@ export function SheetRow({
         >
           <option value={CommandType.MOVE_SHELF}>家具を移動</option>
           <option value={CommandType.RETURN_SHELF}>家具を片付ける</option>
+          <option value={CommandType.UNDOCK_SHELF}>持っている家具をその場に置く</option>
           <option value={CommandType.MOVE_TO_LOCATION}>移動</option>
           <option value={CommandType.RETURN_HOME}>充電ドックに戻る</option>
+          {enableShortcutFeature && (
+            <option value={CommandType.SHORTCUT} disabled={disableShortcut}>
+              ショートカットを実行
+            </option>
+          )}
           <option value={CommandType.SPEAK}>発話</option>
           <option value={CommandType.CANCEL_COMMAND}>コマンドキャンセル</option>
           <option value={CommandType.PROCEED}>待機状態を解除</option>
@@ -86,8 +97,10 @@ export function SheetRow({
       <td style={{ textAlign: "start" }}>
         <ShowIf type={CommandType.MOVE_SHELF}>{moveShelf}</ShowIf>
         <ShowIf type={CommandType.RETURN_SHELF}>{returnShelf}</ShowIf>
+        <ShowIf type={CommandType.UNDOCK_SHELF}>{undockShelf}</ShowIf>
         <ShowIf type={CommandType.MOVE_TO_LOCATION}>{moveToLocation}</ShowIf>
         <ShowIf type={CommandType.RETURN_HOME}>{returnHome}</ShowIf>
+        <ShowIf type={CommandType.SHORTCUT}>{shortcut}</ShowIf>
         <ShowIf type={CommandType.SPEAK}>{speak}</ShowIf>
         <ShowIf type={CommandType.CANCEL_COMMAND}>{cancelCommand}</ShowIf>
         <ShowIf type={CommandType.PROCEED}>{proceed}</ShowIf>

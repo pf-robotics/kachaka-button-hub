@@ -49,6 +49,15 @@ String ConvertRobotInfo(const RobotInfoHolder& robot_info) {
   //       ...
   //     }
   //   ]
+  //   "shortcuts": [
+  //     {
+  //       "id": "shortcut1",
+  //       "name": "Shortcut 1"
+  //     },
+  //     {
+  //       ...
+  //     }
+  //   ]
   // }
   JsonDocument doc;
   doc["type"] = "robot_info";
@@ -69,6 +78,14 @@ String ConvertRobotInfo(const RobotInfoHolder& robot_info) {
       JsonObject location_json = doc["locations"].createNestedObject();
       location_json["id"] = location.id;
       location_json["name"] = location.name;
+    }
+  }
+  if (robot_info.has_shortcuts) {
+    doc["shortcuts"] = JsonArray();
+    for (const Shortcut& shortcut : robot_info.shortcuts) {
+      JsonObject shortcut_json = doc["shortcuts"].createNestedObject();
+      shortcut_json["id"] = shortcut.id;
+      shortcut_json["name"] = shortcut.name;
     }
   }
 
@@ -186,6 +203,55 @@ String ConvertObservedButtons(
   return out;
 }
 
+static void FillCommandJson(const Command& command, JsonObject out) {
+  out["type"] = static_cast<int>(command.type);
+  out["cancel_all"] = command.cancel_all;
+  if (!command.tts_on_success.isEmpty()) {
+    out["tts_on_success"] = command.tts_on_success;
+  }
+  out["deferrable"] = command.deferrable;
+  if (std::fabs(command.lock_duration_sec) > 0.001) {
+    out["lock_duration_sec"] = command.lock_duration_sec;
+  }
+  switch (command.type) {
+    case CommandType::MOVE_SHELF: {
+      JsonObject move_shelf = out.createNestedObject("move_shelf");
+      move_shelf["shelf_id"] = command.move_shelf.target_shelf_id;
+      move_shelf["location_id"] = command.move_shelf.destination_location_id;
+    } break;
+    case CommandType::RETURN_SHELF: {
+      JsonObject return_shelf = out.createNestedObject("return_shelf");
+      return_shelf["shelf_id"] = command.return_shelf.target_shelf_id;
+    } break;
+    case CommandType::UNDOCK_SHELF: {
+    } break;
+    case CommandType::MOVE_TO_LOCATION: {
+      JsonObject move_to_location = out.createNestedObject("move_to_location");
+      move_to_location["location_id"] =
+          command.move_to_location.target_location_id;
+    } break;
+    case CommandType::RETURN_HOME: {
+    } break;
+    case CommandType::SPEAK: {
+      JsonObject speak = out.createNestedObject("speak");
+      speak["text"] = command.speak.text;
+    } break;
+    case CommandType::SHORTCUT: {
+      JsonObject shortcut = out.createNestedObject("shortcut");
+      shortcut["shortcut_id"] = command.shortcut.target_shortcut_id;
+    } break;
+  }
+}
+
+String ConvertCommand(const Command& command) {
+  JsonDocument doc;
+  JsonObject command_json = doc.to<JsonObject>();
+  FillCommandJson(command, command_json);
+  String out;
+  serializeJson(doc, out);
+  return out;
+}
+
 String ConvertCommands(const std::map<KButton, Command>& commands) {
   // {
   //   "type": "commands",
@@ -225,39 +291,7 @@ String ConvertCommands(const std::map<KButton, Command>& commands) {
     JsonObject button_json = item.createNestedObject("button");
     FillButtonJson(button, button_json);
     JsonObject command_json = item.createNestedObject("command");
-    command_json["type"] = static_cast<int>(command.type);
-    command_json["cancel_all"] = command.cancel_all;
-    if (!command.tts_on_success.isEmpty()) {
-      command_json["tts_on_success"] = command.tts_on_success;
-    }
-    command_json["deferrable"] = command.deferrable;
-    if (std::fabs(command.lock_duration_sec) > 0.001) {
-      command_json["lock_duration_sec"] = command.lock_duration_sec;
-    }
-    switch (command.type) {
-      case CommandType::MOVE_SHELF: {
-        JsonObject move_shelf = command_json.createNestedObject("move_shelf");
-        move_shelf["shelf_id"] = command.move_shelf.target_shelf_id;
-        move_shelf["location_id"] = command.move_shelf.destination_location_id;
-      } break;
-      case CommandType::RETURN_SHELF: {
-        JsonObject return_shelf =
-            command_json.createNestedObject("return_shelf");
-        return_shelf["shelf_id"] = command.return_shelf.target_shelf_id;
-      } break;
-      case CommandType::MOVE_TO_LOCATION: {
-        JsonObject move_to_location =
-            command_json.createNestedObject("move_to_location");
-        move_to_location["location_id"] =
-            command.move_to_location.target_location_id;
-      } break;
-      case CommandType::RETURN_HOME: {
-      } break;
-      case CommandType::SPEAK: {
-        JsonObject speak = command_json.createNestedObject("speak");
-        speak["text"] = command.speak.text;
-      } break;
-    }
+    FillCommandJson(command, command_json);
   }
 
   std::time_t now;

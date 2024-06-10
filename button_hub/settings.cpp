@@ -36,8 +36,9 @@ void Settings::Begin(Preferences* prefs) {
       "OTA settings: ota_endpoint=\"%s\", ota_label=\"%s\", "
       "reboot_ota_url=\"%s\"\n",
       GetOtaEndpoint(), GetOtaLabel(), GetOtaUrlAfterBoot().c_str());
-  Serial.printf("Values: next_id=%d, ota_fail=%d\n", GetNextButtonId(),
-                GetOtaFailCount());
+  Serial.printf("Values: next_btn_id=%d, next_log_id=%d, ota_fail=%d\n",
+                prefs_->getInt("next_button_id", -1),
+                prefs_->getInt("next_log_id", -1), GetOtaFailCount());
 }
 
 void Settings::Reset() {
@@ -153,6 +154,13 @@ int Settings::GetNextButtonId() {
   Check();
   const int next_id = prefs_->getInt("next_button_id", 1);
   prefs_->putInt("next_button_id", next_id + 1);
+  return next_id;
+}
+
+int Settings::GetNextLoggingId() {
+  Check();
+  const int next_id = prefs_->getInt("next_log_id", 1);
+  prefs_->putInt("next_log_id", next_id + 1);
   return next_id;
 }
 

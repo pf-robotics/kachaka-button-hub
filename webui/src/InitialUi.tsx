@@ -58,6 +58,12 @@ export function InitialUi({
             ? `${robotInfo?.locations.length}件`
             : "(取得中...)"}
         </li>
+        <li>
+          ショートカット一覧 ...{" "}
+          {robotInfo?.shortcuts?.length
+            ? `${robotInfo?.shortcuts.length}件`
+              : "(取得中...)"}
+        </li>
       </ul>
       <h2>カチャカのシリアル番号・IPアドレス</h2>
       <RobotHostEditor

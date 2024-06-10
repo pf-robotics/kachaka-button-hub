@@ -8,6 +8,7 @@
 
 #include "ip_resolver.hpp"
 #include "kachaka-api.pb.h"
+#include "logging.hpp"
 #include "src/sh2lib/sh2lib.h"
 
 namespace api {
@@ -27,6 +28,7 @@ static ResultCode g_result_code = ResultCode::kOk;
 static String g_get_robot_version_response;
 static std::vector<Shelf> g_get_shelves_response;
 static std::vector<Location> g_get_locations_response;
+static std::vector<Shortcut> g_get_shortcuts_response;
 
 const char* ResultCodeToString(ResultCode code) {
   return code == api::ResultCode::kOk             ? "OK"
@@ -82,6 +84,18 @@ static bool DecodeLocation(pb_istream_t* stream, const pb_field_t* /* field */,
   return pb_decode(stream, kachaka_api_Location_fields, &location);
 }
 
+static bool DecodeShortcut(pb_istream_t* stream, const pb_field_t* /* field */,
+                           void** arg) {
+  Shortcut& out = **reinterpret_cast<Shortcut**>(arg);
+  kachaka_api_Shortcut shortcut{};
+  shortcut.id.funcs.decode = DecodeString;
+  shortcut.id.arg = &out.id;
+  shortcut.name.funcs.decode = DecodeString;
+  shortcut.name.arg = &out.name;
+
+  return pb_decode(stream, kachaka_api_Shortcut_fields, &shortcut);
+}
+
 static bool DecodeRepeatedShelf(pb_istream_t* stream, const pb_field_t* field,
                                 void** arg) {
   std::vector<Shelf>* out = *reinterpret_cast<std::vector<Shelf>**>(arg);
@@ -103,6 +117,18 @@ static bool DecodeRepeatedLocation(pb_istream_t* stream,
     return false;
   }
   out->push_back(std::move(location));
+  return true;
+}
+
+static bool DecodeRepeatedShortcut(pb_istream_t* stream,
+                                   const pb_field_t* field, void** arg) {
+  std::vector<Shortcut>* out = *reinterpret_cast<std::vector<Shortcut>**>(arg);
+  Shortcut shortcut;
+  Shortcut* shortcut_ptr = &shortcut;
+  if (!DecodeShortcut(stream, field, reinterpret_cast<void**>(&shortcut_ptr))) {
+    return false;
+  }
+  out->push_back(std::move(shortcut));
   return true;
 }
 
@@ -225,6 +251,31 @@ static int HandleGetLocationsResponse(struct sh2lib_handle* /* handle */,
   return 0;
 }
 
+static int HandleGetShortcutsResponse(struct sh2lib_handle* /* handle */,
+                                      const char* data, size_t len, int flags) {
+  Serial.printf(" <- GetShortcutsResponse (len=%d)\n", len);
+  CheckFlags(flags);
+
+  if (len > 0) {
+    pb_istream_t stream = pb_istream_from_buffer(
+        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
+
+    kachaka_api_GetShortcutsResponse response =
+        kachaka_api_GetShortcutsResponse_init_zero;
+    response.shortcuts.funcs.decode = DecodeRepeatedShortcut;
+    response.shortcuts.arg = &g_get_shortcuts_response;
+
+    const int status =
+        pb_decode(&stream, kachaka_api_GetShortcutsResponse_fields, &response);
+    if (!status) {
+      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 static int HandleProceedResponse(struct sh2lib_handle* /* handle */,
                                  const char* data, size_t len, int flags) {
   Serial.printf(" <- HandleProceedResponse (len=%d)\n", len);
@@ -239,6 +290,32 @@ static int HandleProceedResponse(struct sh2lib_handle* /* handle */,
 
     const int status =
         pb_decode(&stream, kachaka_api_StartCommandResponse_fields, &response);
+    if (!status) {
+      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+      return 1;
+    }
+    Serial.printf("response = {success=%d, error_code=%d}\n",
+                  response.result.success, response.result.error_code);
+  }
+
+  return 0;
+}
+
+static int HandleStartShortcutCommandResponse(
+    struct sh2lib_handle* /* handle */, const char* data, size_t len,
+    int flags) {
+  Serial.printf(" <- HandleStartShortcutCommandResponse (len=%d)\n", len);
+  CheckFlags(flags);
+
+  if (len > 0) {
+    pb_istream_t stream = pb_istream_from_buffer(
+        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
+
+    kachaka_api_StartShortcutCommandResponse response =
+        kachaka_api_StartShortcutCommandResponse_init_zero;
+
+    const int status = pb_decode(
+        &stream, kachaka_api_StartShortcutCommandResponse_fields, &response);
     if (!status) {
       Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
       return 1;
@@ -374,6 +451,7 @@ static bool EncodeSendAndWait(Service& service, const pb_msgdesc_t* fields,
   if (!EncodeProtoBufMessage(g_send_buffer, sizeof(g_send_buffer), &g_send_size,
                              fields, request)) {
     g_result_code = ResultCode::kEncodeFailed;
+    logging::Log("API ERROR: Failed to encode %s", service.service_name);
     return false;
   }
 
@@ -382,14 +460,24 @@ static bool EncodeSendAndWait(Service& service, const pb_msgdesc_t* fields,
               reinterpret_cast<void*>(&service), 5, &task);
   const int retv = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(kDefaultTimeoutMsec));
   if (g_result_code == ResultCode::kNotConnected) {
+    logging::Log("API ERROR: Not connected to HTTP2 server");
     return false;
   }
-  if (retv != pdTRUE) {
+  if (retv == 0) {
     Serial.printf("Timeout waiting for %s\n", service);
     g_result_code = ResultCode::kTimeout;
+    logging::Log("API ERROR: Timeout waiting for %s", service.service_name);
     return false;
   }
-  return retv == pdPASS;
+  if (service.service_name == "StartCommand") {
+    const auto* start_cpommand_request =
+        static_cast<const kachaka_api_StartCommandRequest*>(request);
+    logging::Log("API: %s(command-tag=%d) succeeded", service.service_name,
+                 start_cpommand_request->command.which_command);
+  } else {
+    logging::Log("API: %s succeeded", service.service_name);
+  }
+  return true;
 }
 
 void SetRobotHost(String host, const int port) {
@@ -439,6 +527,23 @@ ResultCode ReturnHome(const bool cancel_all, const char* tts_on_success,
   FillCommandCommon(request, cancel_all, tts_on_success, deferrable, title);
 
   EncodeSendAndWait(service, kachaka_api_StartCommandRequest_fields, &request);
+  return g_result_code;
+}
+
+ResultCode StartShortcut(const char* shortcut_id, const bool cancel_all,
+                         const char* tts_on_success, const bool deferrable,
+                         const char* title) {
+  static Service service = {"StartShortcutCommand",
+                            HandleStartShortcutCommandResponse};
+  service.parent_task_handle = xTaskGetCurrentTaskHandle();
+
+  kachaka_api_StartShortcutCommandRequest request =
+      kachaka_api_StartShortcutCommandRequest_init_zero;
+  request.target_shortcut_id.funcs.encode = EncodeString;
+  request.target_shortcut_id.arg = const_cast<char*>(shortcut_id);
+
+  EncodeSendAndWait(service, kachaka_api_StartShortcutCommandRequest_fields,
+                    &request);
   return g_result_code;
 }
 
@@ -522,6 +627,21 @@ ResultCode ReturnShelf(const char* shelf_id, const bool cancel_all,
   return g_result_code;
 }
 
+ResultCode UndockShelf(const bool cancel_all, const char* tts_on_success,
+                       const bool deferrable, const char* title) {
+  static Service service = {"StartCommand", HandleStartCommandResponse};
+  service.parent_task_handle = xTaskGetCurrentTaskHandle();
+
+  kachaka_api_StartCommandRequest request =
+      kachaka_api_StartCommandRequest_init_zero;
+  request.has_command = true;
+  request.command.which_command = kachaka_api_Command_undock_shelf_command_tag;
+  FillCommandCommon(request, cancel_all, tts_on_success, deferrable, title);
+
+  EncodeSendAndWait(service, kachaka_api_StartCommandRequest_fields, &request);
+  return g_result_code;
+}
+
 ResultCode Lock(const double duration_sec, const char* title) {
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
@@ -563,6 +683,20 @@ std::pair<ResultCode, std::vector<Location>> GetLocations() {
     return {g_result_code, {}};
   }
   return {g_result_code, std::move(g_get_locations_response)};
+}
+
+std::pair<ResultCode, std::vector<Shortcut>> GetShortcuts() {
+  static Service service = {"GetShortcuts", HandleGetShortcutsResponse};
+  service.parent_task_handle = xTaskGetCurrentTaskHandle();
+
+  kachaka_api_GetRequest request = kachaka_api_GetRequest_init_zero;
+  request.metadata.cursor = 0;
+
+  g_get_shortcuts_response.clear();
+  if (!EncodeSendAndWait(service, kachaka_api_GetRequest_fields, &request)) {
+    return {g_result_code, {}};
+  }
+  return {g_result_code, std::move(g_get_shortcuts_response)};
 }
 
 ResultCode Proceed() {

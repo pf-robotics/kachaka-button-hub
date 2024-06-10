@@ -127,6 +127,7 @@ export function Sheet({
   commands,
   buttonIdToNameMap,
   robotInfo,
+  enableShortcutFeature,
   onEdit,
   onDelete,
   onSetButtonName,
@@ -134,6 +135,7 @@ export function Sheet({
   commands: { button: Button; command: Command }[] | undefined;
   buttonIdToNameMap: Map<string, string>;
   robotInfo: RobotInfo | undefined;
+  enableShortcutFeature: boolean;
   onEdit: (button: Button, command: Command) => Promise<void>;
   onDelete: (button: Button) => Promise<void>;
   onSetButtonName: (button: Button, name: string) => Promise<void>;
@@ -217,6 +219,7 @@ export function Sheet({
                         cancel_all: false,
                       }
                     }
+                    enableShortcutFeature={enableShortcutFeature}
                     robotInfo={robotInfo}
                     onEdit={onEdit}
                     onDelete={onDelete}

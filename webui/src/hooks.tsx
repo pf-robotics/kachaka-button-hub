@@ -11,6 +11,7 @@ import {
   RobotInfo,
   Settings,
   Shelf,
+  Shortcut,
 } from "./types";
 
 export function useWiFiSettings(
@@ -199,6 +200,54 @@ export function useLocationSelect(
   return [selectedLocationId, select];
 }
 
+export function useShortcutSelect(
+  shortcuts: Shortcut[],
+  defaultValue: string,
+): [string | undefined, JSX.Element] {
+  const [selectedShortcutId, setSelectedShortcutId] = useState<
+    string | undefined
+  >(defaultValue);
+  const options = useMemo(
+    () =>
+      shortcuts.map((shortcut) => (
+        <option key={shortcut.id} value={shortcut.id}>
+          {shortcut.name}
+        </option>
+      )),
+    [shortcuts],
+  );
+  const isKnownId = (shortcuts ?? [])
+    .map((shortcut) => shortcut.id)
+    .includes(defaultValue);
+  const select = useMemo(
+    () => (
+      <select
+        value={selectedShortcutId ?? ""}
+        onChange={(e) => setSelectedShortcutId(e.target.value)}
+        style={{ maxWidth: "30vw" }}
+      >
+        {!isKnownId && (
+          <option value={defaultValue} disabled>
+            (不明なショートカット)
+          </option>
+        )}
+        {options}
+      </select>
+    ),
+    [options, selectedShortcutId, defaultValue, isKnownId],
+  );
+  return [
+    selectedShortcutId,
+    shortcuts.length > 0 ? (
+      select
+    ) : (
+      <select key="noshortcut" disabled>
+        <option>(なし)</option>
+      </select>
+    ),
+  ];
+}
+
 interface HubInfoMessage extends HubInfo {
   type: "hub_info";
 }
@@ -317,22 +366,4 @@ export function useKachakaButtonHub(hubHost: string) {
     commands,
     wifiRssi,
   };
-}
-
-export function useLocalStorageState<T>(
-  key: string,
-  defaultValue: T,
-): [T, (value: T) => void] {
-  const [value, setValue] = useState<T>(() => {
-    const item = window.localStorage.getItem(key);
-    return item !== null ? JSON.parse(item) : defaultValue;
-  });
-  const setValueAndLocalStorage = useCallback(
-    (newValue: T) => {
-      setValue(newValue);
-      window.localStorage.setItem(key, JSON.stringify(newValue));
-    },
-    [key],
-  );
-  return [value, setValueAndLocalStorage];
 }

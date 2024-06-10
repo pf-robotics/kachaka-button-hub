@@ -5,12 +5,16 @@
 #include <WiFiAP.h>
 
 #include "common.hpp"
+#include "screen.hpp"
 
+static constexpr int kWiFiButtonVisibilityTimeout = 3 * 1000;
 static constexpr int kWiFiTimeout = 60 * 1000;
 
 bool ConnectToWiFi(const char* ssid, const char* password,
                    const std::function<bool()>& giveup) {
   Serial.print("Connecting to Wi-Fi network: ");
+  bool initial_screen = true;
+  screen::DrawWiFiConnectingPage(true);
 
   // Choose the best WiFi AP according to signal strength
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
@@ -23,6 +27,10 @@ bool ConnectToWiFi(const char* ssid, const char* password,
       Serial.println("Giving up connection");
       WiFi.disconnect();
       return false;
+    }
+    if (initial_screen && millis() - now > kWiFiButtonVisibilityTimeout) {
+      initial_screen = false;
+      screen::DrawWiFiConnectingPage(false);
     }
     if (millis() - now > kWiFiTimeout) {
       Serial.println("Connection timeout");

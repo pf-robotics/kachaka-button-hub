@@ -6,6 +6,7 @@ import {
   useCheckbox,
   useShelfSelect,
   useLocationSelect,
+  useShortcutSelect,
   useNumberInput,
 } from "./hooks";
 import { isEqual } from "./utils";
@@ -33,6 +34,12 @@ export function useCommandEditor(
       ? command.return_shelf.shelf_id
       : robotInfo?.shelves?.[0]?.id ?? "",
     [{ value: "", label: "持っている家具" }],
+  );
+  const [shortcutId, shortcutIdSelect] = useShortcutSelect(
+    robotInfo?.shortcuts ?? [],
+    command.type === CommandType.SHORTCUT
+      ? command.shortcut.shortcut_id
+      : robotInfo?.shortcuts?.[0]?.id ?? "",
   );
   const [moveToLocationLocationId, moveToLocationLocationSelect] =
     useLocationSelect(
@@ -75,6 +82,12 @@ export function useCommandEditor(
           },
         };
         break;
+      case CommandType.UNDOCK_SHELF:
+        out = {
+          ...out,
+          type: CommandType.UNDOCK_SHELF,
+        };
+        break;
       case CommandType.MOVE_TO_LOCATION:
         out = {
           ...out,
@@ -88,6 +101,15 @@ export function useCommandEditor(
         out = {
           ...out,
           type: CommandType.RETURN_HOME,
+        };
+        break;
+      case CommandType.SHORTCUT:
+        out = {
+          ...out,
+          type: CommandType.SHORTCUT,
+          shortcut: {
+            shortcut_id: shortcutId ?? "",
+          },
         };
         break;
       case CommandType.SPEAK:
@@ -134,6 +156,7 @@ export function useCommandEditor(
     moveShelfLocationId,
     returnShelfShelfId,
     moveToLocationLocationId,
+    shortcutId,
     speakInput.value,
     cancelAllInput.checked,
     ttsOnSuccessInput.value,
@@ -154,8 +177,10 @@ export function useCommandEditor(
       </>
     ),
     returnShelf: <>{returnShelfShelfSelect} を片付ける</>,
+    undockShelf: <>持っている家具をその場に置く</>,
     moveToLocation: <>{moveToLocationLocationSelect} に移動</>,
     returnHome: <>充電ドックに戻る</>,
+    shortcut: <>ショートカット {shortcutIdSelect} を実行</>,
     speak: (
       <>
         <input
@@ -182,5 +207,6 @@ export function useCommandEditor(
     ),
     modified: !isEqual(command, newCommand),
     disableOptions,
+    disableShortcut: [undefined, 0].includes(robotInfo?.shortcuts?.length),
   };
 }

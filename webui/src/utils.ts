@@ -31,3 +31,17 @@ export function isEqual(a: unknown, b: unknown): boolean {
 
   return true;
 }
+
+export function isValidVersion(version: string | undefined): boolean {
+  if (version === undefined) {
+    return false;
+  }
+  return /^\d+\.\d+\.\d+$/.test(version);
+}
+
+export function getIntVersion(version: string): number {
+  return version
+    .split(".")
+    .map((x) => parseInt(x, 10))
+    .reduce((prev, cur) => prev * 1000 + cur, 0);
+}

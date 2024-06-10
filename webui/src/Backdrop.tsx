@@ -22,6 +22,7 @@ export function Backdrop({
         justifyContent: "center",
         alignItems: "center",
         flexDirection: "column",
+        zIndex: 10,
       }}
     >
       {children}

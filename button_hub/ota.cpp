@@ -7,6 +7,7 @@
 #include <tuple>
 
 #include "common.hpp"
+#include "logging.hpp"
 #include "settings.hpp"
 #include "version.hpp"
 
@@ -46,15 +47,15 @@ static bool FetchAndOta(const String& url) {
     http.begin(url);
     const int http_code = http.GET();
     if (http_code != HTTP_CODE_OK) {
-      Serial.printf("HTTP GET failed, code=%d, error: %s\n", http_code,
-                    HTTPClient::errorToString(http_code).c_str());
+      logging::Log("OTA: HTTP GET failed, code=%d, error: %s", http_code,
+                   HTTPClient::errorToString(http_code).c_str());
       error = Error::kHttpGetFailed;
       delay(1000);
       continue;
     }
     const size_t content_length = http.getSize();
     if (!Update.begin(content_length)) {
-      Serial.printf("Failed to begin OTA update: %s\n", Update.errorString());
+      logging::Log("OTA: Failed to begin OTA update: %s", Update.errorString());
       // NO_ERROR corresponds to malloc failure. See Updater.cpp
       static const String KMallocFailed = "No Error";
       error = KMallocFailed == Update.errorString() ? Error::kNotEnoughMemory
@@ -75,9 +76,9 @@ static bool FetchAndOta(const String& url) {
           written += len;
 
           const int64_t now = static_cast<int64_t>(millis());
-          if (now > g_last_update + 250 || written == content_length) {
+          if (now > g_last_update + 1000 || written == content_length) {
             const double percent = (100.0 * written) / content_length;
-            Serial.printf("Progress %5.1f%%\n", percent);
+            logging::Log("OTA: Progress %5.1f%%", percent);
             g_on_progress(percent);
             g_last_update = now;
           }
@@ -87,7 +88,7 @@ static bool FetchAndOta(const String& url) {
       }
     }
     if (written != content_length) {
-      Serial.println("Written only partial file");
+      logging::Log("OTA: Written only partial file");
       error = Error::kWrittenOnlyPartialFile;
       Update.abort();
       delay(1000);
@@ -102,11 +103,11 @@ static bool FetchAndOta(const String& url) {
     return false;
   }
   if (!Update.end()) {
-    Serial.printf("OTA update error: %s\n", Update.errorString());
+    logging::Log("OTA: Update error: %s", Update.errorString());
     g_on_error(Error::kVerificationFailed);
     return false;
   }
-  Serial.println("OTA Update successfully completed. Rebooting...");
+  logging::Log("OTA: Update successfully completed. Rebooting...");
   return true;
 }
 
@@ -132,14 +133,14 @@ static void RunOtaWatchDog(void*) {
       }
       if (last_error != error) {
         if (error == Error::kWatchdogNow) {
-          Serial.println("OTA watchdog: now");
+          logging::Log("OTA: watchdog: now");
         } else {
-          Serial.printf("OTA watchdog: %d sec\n",
-                        error == Error::kWatchdog10Sec    ? 10
-                        : error == Error::kWatchdog30Sec  ? 30
-                        : error == Error::kWatchdog60Sec  ? 60
-                        : error == Error::kWatchdog180Sec ? 180
-                                                          : -1);
+          logging::Log("OTA: watchdog: %d sec",
+                       error == Error::kWatchdog10Sec    ? 10
+                       : error == Error::kWatchdog30Sec  ? 30
+                       : error == Error::kWatchdog60Sec  ? 60
+                       : error == Error::kWatchdog180Sec ? 180
+                                                         : -1);
         }
         g_on_error(error);  // should be reboot in the callback if needed
         last_error = error;
@@ -160,7 +161,7 @@ static void RunOtaTask(void*) {
   BaseType_t retv = xTaskCreate(RunOtaWatchDog, "OtaWatchDog", 2 * 1024,
                                 nullptr, 10, nullptr);
   if (retv != pdPASS) {
-    Serial.println("Failed to start OTA watchdog task");
+    logging::Log("OTA: Failed to start OTA watchdog task");
   }
   g_on_start();
   const bool ok = FetchAndOta(g_url);
@@ -171,14 +172,14 @@ static void RunOtaTask(void*) {
 
 bool StartOtaByUrl(const String& ota_url) {
   if (!g_url.isEmpty()) {
-    Serial.println("OTA is already in progress");
+    logging::Log("OTA: OTA is already in progress");
     return false;
   }
   g_url = ota_url;
   BaseType_t retv =
       xTaskCreate(RunOtaTask, "Ota", 8 * 1024, nullptr, 3, nullptr);
   if (retv != pdPASS) {
-    Serial.println("Failed to start OTA task");
+    logging::Log("OTA: Failed to start OTA task");
     g_url = "";
     return false;
   }
@@ -249,14 +250,14 @@ String GetDesiredHubVersion() {
   Serial.printf("URL: \"%s\"\n", url.c_str());
   esp_task_wdt_add(nullptr);
   for (int i = 0; i < kMaxFetchTrial; i++) {
-    Serial.printf("Fetching OTA info, trial=%d\n", i);
+    logging::Log("OTA: Fetching OTA info, trial=%d", i);
     esp_task_wdt_reset();
     HTTPClient http;
     http.begin(url);
     const int http_code = http.GET();
     if (http_code < 200 || 299 < http_code) {
-      Serial.printf("Obtaining OTA info failed, code=%d, error: %s\n",
-                    http_code, HTTPClient::errorToString(http_code).c_str());
+      logging::Log("OTA: Obtaining OTA info failed, code=%d, error: %s",
+                   http_code, HTTPClient::errorToString(http_code).c_str());
       esp_task_wdt_reset();
       delay(1000);
       continue;
@@ -265,7 +266,7 @@ String GetDesiredHubVersion() {
 
     JsonDocument doc;
     if (deserializeJson(doc, body)) {
-      Serial.println("Failed to parse OTA info");
+      logging::Log("OTA: Failed to parse OTA info");
       delay(1000);
       continue;
     }
@@ -286,8 +287,8 @@ String GetOtaImageUrlByVersion(const String& version) {
     http.begin(g_ota_endpoint + "/software-files-url");
     const int http_code = http.POST(std::move(data));
     if (http_code < 200 || 299 < http_code) {
-      Serial.printf("Obtaining OTA URL failed, code=%d, error: %s\n", http_code,
-                    HTTPClient::errorToString(http_code).c_str());
+      logging::Log("OTA: Obtaining OTA URL failed, code=%d, error: %s",
+                   http_code, HTTPClient::errorToString(http_code).c_str());
       delay(1000);
       continue;
     }
@@ -295,7 +296,7 @@ String GetOtaImageUrlByVersion(const String& version) {
 
     JsonDocument doc;
     if (deserializeJson(doc, body)) {
-      Serial.println("Failed to parse OTA info");
+      logging::Log("OTA: Failed to parse OTA info");
       delay(1000);
       continue;
     }
@@ -313,27 +314,28 @@ void RebootForOtaAfterBoot(const String& url) {
 }
 
 static void RunOtaCheckAndRebootIfRequired(void*) {
-  Serial.println("Starting automatic OTA process");
+  logging::Log("OTA: Starting automatic OTA process");
   const String version = GetDesiredHubVersion();
   if (version.isEmpty()) {
-    Serial.println("Failed to obtain desired version");
+    logging::Log("OTA: Failed to obtain desired version");
     vTaskDelete(nullptr);
     return;
   }
   if (!CheckOtaIsRequired(kVersion, version)) {
-    Serial.printf("OTA is not required: current=\"%s\", new=\"%s\"\n", kVersion,
-                  version.c_str());
+    logging::Log("OTA: OTA is not required: current=\"%s\", new=\"%s\"",
+                 kVersion, version.c_str());
     vTaskDelete(nullptr);
     return;
   }
-  Serial.printf("Desired version: %s\n", version.c_str());
+  logging::Log("OTA: Desired version: %s", version.c_str());
   String url = GetOtaImageUrlByVersion(version);
   if (url.isEmpty()) {
-    Serial.println("Failed to obtain OTA URL");
+    logging::Log("OTA: Failed to obtain URL");
     vTaskDelete(nullptr);
     return;
   }
 
+  logging::Log("OTA: Rebooting...");
   RebootForOtaAfterBoot(url);
 
   vTaskDelete(nullptr);
@@ -351,13 +353,13 @@ void StartOtaCheckIf(const std::function<bool()>& start_condition) {
     return;
   }
   if (g_ota_endpoint.isEmpty()) {
-    Serial.println("Disabling automatic OTA check: no OTA endpoint");
+    logging::Log("ORTA: Disabling automatic OTA check: no OTA endpoint");
     triggered = true;
     return;
   }
   const auto [success, major, minor, patch] = ParseVersion(kVersion);
   if (!success) {
-    Serial.println("Disabling automatic OTA check: invalid version");
+    logging::Log("OTA: Disabling automatic OTA check: invalid version");
     triggered = true;
     return;
   }

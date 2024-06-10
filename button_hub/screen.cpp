@@ -155,6 +155,19 @@ void Begin(const int brightness) {
   M5.Lcd.setBrightness(brightness);
 }
 
+void DrawWiFiConnectingPage(bool init) {
+  M5.Lcd.setFont(&lgfx::fonts::lgfxJapanGothicP_24);
+  if (init) {
+    M5.Lcd.printf("Wi-Fi (%s) を探しています...",
+                  g_settings.GetWiFiSsid().c_str());
+    screen::DrawButtonUsage(1, nullptr);
+    screen::DrawButtonUsage(2, nullptr);
+    screen::DrawButtonUsage(3, nullptr);
+  } else {
+    screen::DrawButtonUsage(1, "Wi-Fi設定");
+  }
+}
+
 void DrawMainPage(const char* ssid, const char* hub_host,
                   const char* robot_host) {
   const kb::LockGuard lock(g_mutex);
@@ -174,25 +187,27 @@ void DrawMainPage(const char* ssid, const char* hub_host,
 
 void DrawStatusInMainPage(const bool fetching, const bool has_robot_version,
                           const bool has_shelves, const bool has_locations,
-                          const bool need_redraw) {
+                          const bool has_shortcuts, const bool need_redraw) {
   const kb::LockGuard lock(g_mutex);
   static bool first = true;
   static bool prev_fetching = false;
   static bool prev_has_robot_version = false;
   static bool prev_has_shelves = false;
   static bool prev_has_locations = false;
+  static bool prev_has_shortcuts = false;
   if (first || need_redraw || fetching != prev_fetching ||
       has_robot_version != prev_has_robot_version ||
-      has_shelves != prev_has_shelves || has_locations != prev_has_locations) {
+      has_shelves != prev_has_shelves || has_locations != prev_has_locations ||
+      has_shortcuts != prev_has_shortcuts) {
     M5.Lcd.setFont(kFontJaSB);
     M5.Lcd.setTextDatum(TL_DATUM);
     const int lh = M5.Lcd.fontHeight() + 2;
     const int w = M5.Lcd.textWidth("ロボットからの情報取得: ");
     M5.Lcd.setCursor(24 + w, kInfoHeight + lh * 1);
-    const int ok_count = static_cast<int>(has_robot_version) +
-                         static_cast<int>(has_shelves) +
-                         static_cast<int>(has_locations);
-    if (ok_count == 3) {
+    const int ok_count =
+        static_cast<int>(has_robot_version) + static_cast<int>(has_shelves) +
+        static_cast<int>(has_locations) + static_cast<int>(has_shortcuts);
+    if (ok_count == 4) {
       M5.Lcd.setTextColor(kStatusSuccess, TFT_WHITE);
       if (fetching) {
         M5.Lcd.print("再取得中... ");
@@ -201,12 +216,13 @@ void DrawStatusInMainPage(const bool fetching, const bool has_robot_version,
       }
     } else {
       M5.Lcd.setTextColor(kStatusDanger, TFT_WHITE);
-      M5.Lcd.printf("取得中 (%d/3)", ok_count);
+      M5.Lcd.printf("取得中 (%d/4)", ok_count);
     }
     prev_fetching = fetching;
     prev_has_robot_version = has_robot_version;
     prev_has_shelves = has_shelves;
     prev_has_locations = has_locations;
+    prev_has_shortcuts = has_shortcuts;
   }
   first = false;
 }

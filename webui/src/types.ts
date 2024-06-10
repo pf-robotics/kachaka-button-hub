@@ -8,6 +8,11 @@ export interface Location {
   name: string;
 }
 
+export interface Shortcut {
+  id: string;
+  name: string;
+}
+
 export interface HubInfo {
   hub_version: string;
   ota_available: boolean;
@@ -19,6 +24,7 @@ export interface RobotInfo {
   robot_version?: string;
   shelves?: Shelf[];
   locations?: Location[];
+  shortcuts?: Shortcut[];
 }
 
 export interface Settings {
@@ -132,8 +138,11 @@ export enum CommandType {
   MOVE_TO_POSE = 13,
   REGISTER_SHELF = 14,
   LOCK = 15,
+  MOVE_FORWARD = 16,
+  ROTATE_IN_PLACE = 17,
   PROCEED = 1000,
   CANCEL_COMMAND = 1001,
+  SHORTCUT = 1002,
 }
 
 export interface CommandBase {
@@ -158,6 +167,10 @@ export type ReturnShelfCommand = {
   };
 } & CommandBase;
 
+export type UndockShelfCommand = {
+  type: CommandType.UNDOCK_SHELF;
+} & CommandBase;
+
 export type MoveToLocationCommand = {
   type: CommandType.MOVE_TO_LOCATION;
   move_to_location: {
@@ -167,6 +180,13 @@ export type MoveToLocationCommand = {
 
 export type ReturnHomeCommand = {
   type: CommandType.RETURN_HOME;
+} & CommandBase;
+
+export type ShortcutCommand = {
+  type: CommandType.SHORTCUT;
+  shortcut: {
+    shortcut_id: string;
+  }
 } & CommandBase;
 
 export type SpeakCommand = {
@@ -187,8 +207,10 @@ export type CancelCommandCommand = {
 export type Command =
   | MoveShelfCommand
   | ReturnShelfCommand
+  | UndockShelfCommand
   | MoveToLocationCommand
   | ReturnHomeCommand
+  | ShortcutCommand
   | SpeakCommand
   | ProceedCommand
   | CancelCommandCommand;
