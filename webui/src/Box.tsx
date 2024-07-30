@@ -10,12 +10,11 @@ export function Box({
   return (
     <div
       style={{
-        border: "1px solid #f0f0f0",
+        border: "2px solid var(--kachaka-gray-1)",
         backgroundColor: "white",
         padding: "12px",
         margin: "8px",
         borderRadius: "8px",
-        boxShadow: "0 0 4px #f0f0f0",
         ...style,
       }}
     >

@@ -27,7 +27,7 @@ export function Modal({
 
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLDialogElement>) => {
-      if (!ref.current) {
+      if (!ref.current || event.target !== ref.current) {
         return;
       }
       const rect = ref.current.getBoundingClientRect();

@@ -78,6 +78,7 @@ String ConvertRobotInfo(const RobotInfoHolder& robot_info) {
       JsonObject location_json = doc["locations"].createNestedObject();
       location_json["id"] = location.id;
       location_json["name"] = location.name;
+      location_json["type"] = GetLocationTypeString(location.type);
     }
   }
   if (robot_info.has_shortcuts) {
@@ -99,26 +100,60 @@ String ConvertSettings(const Settings& settings) {
   //   "type": "settings",
   //   "settings": {
   //     "wifi_ssid": "",
-  //     "wifi_pass": "",
   //     "robot_host": "",
   //     "ntp_server": "",
-  //     "beep_volume": 0,
-  //     "screen_brightness": 0,
-  //     "auto_ota_is_enabled": 0,
-  //     "auto_refetch_on_ui_load": 0,
+  //     "beep_volume": 5,
+  //     "screen_brightness": 64,
+  //     "auto_ota_is_enabled": false,
+  //     "auto_refetch_on_ui_load": false,
+  //     "gpio_button_is_enabled": false,
   //   }
   // }
   JsonDocument doc;
   doc["type"] = "settings";
   JsonObject settings_json = doc.createNestedObject("settings");
   settings_json["wifi_ssid"] = settings.GetWiFiSsid();
-  settings_json["wifi_pass"] = settings.GetWiFiPass();
   settings_json["robot_host"] = settings.GetRobotHost();
   settings_json["ntp_server"] = settings.GetNtpServer();
   settings_json["beep_volume"] = settings.GetBeepVolume();
   settings_json["screen_brightness"] = settings.GetScreenBrightness();
   settings_json["auto_ota_is_enabled"] = settings.GetAutoOtaIsEnabled();
   settings_json["auto_refetch_on_ui_load"] = settings.GetAutoRefetchOnUiLoad();
+  settings_json["gpio_button_is_enabled"] = settings.GetGpioButtonIsEnabled();
+
+  String out;
+  serializeJson(doc, out);
+  return out;
+}
+
+String ConvertWiFiApList(const bool scanning,
+                         const std::vector<wifi::WiFiAp>& wifi_ap_list) {
+  // {
+  //   "type": "wifi_ap_list",
+  //   "scanning": true,
+  //   "wifi_ap_list": [
+  //     {
+  //       "ssid": "ssid",
+  //       "bssid": "bssid",
+  //       "channel": 1,
+  //       "encryption_type": 0
+  //     },
+  //     {
+  //       ...
+  //     }
+  //   ]
+  // }
+  JsonDocument doc;
+  doc["type"] = "wifi_ap_list";
+  doc["scanning"] = scanning;
+  JsonArray wifi_ap_list_json = doc.createNestedArray("wifi_ap_list");
+  for (const auto& ap : wifi_ap_list) {
+    JsonObject ap_json = wifi_ap_list_json.createNestedObject();
+    ap_json["ssid"] = ap.ssid;
+    ap_json["bssid"] = ap.bssid;
+    ap_json["channel"] = ap.channel;
+    ap_json["encryption_type"] = ap.encryption_type;
+  }
 
   String out;
   serializeJson(doc, out);
@@ -139,6 +174,11 @@ static void FillButtonJson(const KButton& button, JsonObject object) {
       const M5Button& m5_button = button.data.m5_button;
       JsonObject m5_button_json = object.createNestedObject("m5_button");
       m5_button_json["id"] = m5_button.id;
+    } break;
+    case ButtonType::kGpioButton: {
+      const GpioButton& gpio_button = button.data.gpio_button;
+      JsonObject gpio_button_json = object.createNestedObject("gpio_button");
+      gpio_button_json["id"] = gpio_button.id;
     } break;
   }
 }
@@ -239,6 +279,15 @@ static void FillCommandJson(const Command& command, JsonObject out) {
     case CommandType::SHORTCUT: {
       JsonObject shortcut = out.createNestedObject("shortcut");
       shortcut["shortcut_id"] = command.shortcut.target_shortcut_id;
+    } break;
+    case CommandType::HTTP_GET: {
+      JsonObject http_get = out.createNestedObject("http_get");
+      http_get["url"] = command.http_get.url;
+    } break;
+    case CommandType::HTTP_POST: {
+      JsonObject http_post = out.createNestedObject("http_post");
+      http_post["url"] = command.http_post.url;
+      http_post["body"] = command.http_post.body;
     } break;
   }
 }

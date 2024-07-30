@@ -1,11 +1,10 @@
 #include "server_commands.hpp"
 
 #include <ArduinoJson.h>
-#include <vector>
+#include <M5Unified.h>
 
 #include "command_table.hpp"
 #include "command_table_io.hpp"
-#include "common.hpp"
 #include "from_json.hpp"
 #include "server.hpp"
 #include "to_json.hpp"
@@ -22,9 +21,10 @@ void HandlePostCommand(AsyncWebServerRequest* request, const String& body,
   if (command_table_io::LoadCommand(body, command_table)) {
     command_table.Save();
     // button names may have changed if the button is new
-    server::SendToWs(to_json::ConvertObservedButtons(
+    server::EnqueueWsMessage(to_json::ConvertObservedButtons(
         command_table.GetObservedButtons(), command_table.GetButtonNames()));
-    server::SendToWs(to_json::ConvertCommands(command_table.GetCommands()));
+    server::EnqueueWsMessage(
+        to_json::ConvertCommands(command_table.GetCommands()));
     request->send(200, "text/plain", "OK");
   } else {
     request->send(400, "text/plain", "Bad Request");
@@ -35,7 +35,8 @@ void HandlePutCommands(AsyncWebServerRequest* request, const String& body,
                        CommandTable& command_table) {
   if (command_table_io::LoadCommandArray(body, command_table)) {
     command_table.Save();
-    server::SendToWs(to_json::ConvertCommands(command_table.GetCommands()));
+    server::EnqueueWsMessage(
+        to_json::ConvertCommands(command_table.GetCommands()));
     request->send(200, "text/plain", "OK");
   } else {
     request->send(400, "text/plain", "Bad Request");
@@ -83,8 +84,9 @@ void HandleDeleteCommand(AsyncWebServerRequest* request, const String& body,
 
   command_table.DeleteCommand(button);
   command_table.Save();
-  server::SendToWs(to_json::ConvertCommands(command_table.GetCommands()));
-  server::SendToWs(to_json::ConvertObservedButtons(
+  server::EnqueueWsMessage(
+      to_json::ConvertCommands(command_table.GetCommands()));
+  server::EnqueueWsMessage(to_json::ConvertObservedButtons(
       command_table.GetObservedButtons(), command_table.GetButtonNames()));
 
   request->send(200, "text/plain", "OK");
@@ -127,7 +129,7 @@ void HandleSetButtonName(AsyncWebServerRequest* request, const String& body,
 
   command_table.SetButtonName(button, name);
   command_table.Save();
-  server::SendToWs(to_json::ConvertObservedButtons(
+  server::EnqueueWsMessage(to_json::ConvertObservedButtons(
       command_table.GetObservedButtons(), command_table.GetButtonNames()));
 
   request->send(200, "text/plain", "OK");
@@ -168,7 +170,7 @@ void HandleDeleteButtonName(AsyncWebServerRequest* request, const String& body,
 
   command_table.DeleteButtonName(button);
   command_table.Save();
-  server::SendToWs(to_json::ConvertObservedButtons(
+  server::EnqueueWsMessage(to_json::ConvertObservedButtons(
       command_table.GetObservedButtons(), command_table.GetButtonNames()));
 
   request->send(200, "text/plain", "OK");

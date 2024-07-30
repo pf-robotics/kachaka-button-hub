@@ -38,6 +38,8 @@ export function SheetRow({
     speak,
     cancelCommand,
     proceed,
+    httpGet,
+    httpPost,
     cancelAllInput,
     ttsOnSuccessInput,
     deferrableInput,
@@ -51,8 +53,11 @@ export function SheetRow({
     [button, newCommand, onEdit],
   );
   const handleDelete = useCallback(() => onDelete(button), [button, onDelete]);
+  const bgStyle = {
+    backgroundColor: modified ? "var(--coral-pink0)" : undefined,
+  };
   const optProps: React.HTMLProps<HTMLTableCellElement> = {
-    style: { visibility: disableOptions ? "hidden" : "visible" },
+    style: { visibility: disableOptions ? "hidden" : "visible", ...bgStyle },
   };
   const ShowIf = useCallback(
     ({ type, children }: { type: CommandType; children: React.ReactNode }) => (
@@ -71,8 +76,8 @@ export function SheetRow({
   return (
     <tr>
       {groupSpan === 0 ? null : <td rowSpan={groupSpan}>{groupLabel}</td>}
-      <td>{itemLabel}</td>
-      <td>
+      <td style={bgStyle}>{itemLabel}</td>
+      <td style={bgStyle}>
         <select
           value={selectedCommandType}
           onChange={(e) =>
@@ -81,7 +86,9 @@ export function SheetRow({
         >
           <option value={CommandType.MOVE_SHELF}>家具を移動</option>
           <option value={CommandType.RETURN_SHELF}>家具を片付ける</option>
-          <option value={CommandType.UNDOCK_SHELF}>持っている家具をその場に置く</option>
+          <option value={CommandType.UNDOCK_SHELF}>
+            持っている家具をその場に置く
+          </option>
           <option value={CommandType.MOVE_TO_LOCATION}>移動</option>
           <option value={CommandType.RETURN_HOME}>充電ドックに戻る</option>
           {enableShortcutFeature && (
@@ -92,9 +99,11 @@ export function SheetRow({
           <option value={CommandType.SPEAK}>発話</option>
           <option value={CommandType.CANCEL_COMMAND}>コマンドキャンセル</option>
           <option value={CommandType.PROCEED}>待機状態を解除</option>
+          <option value={CommandType.HTTP_GET}>HTTP GET</option>
+          <option value={CommandType.HTTP_POST}>HTTP POST</option>
         </select>
       </td>
-      <td style={{ textAlign: "start" }}>
+      <td style={{ textAlign: "start", ...bgStyle }}>
         <ShowIf type={CommandType.MOVE_SHELF}>{moveShelf}</ShowIf>
         <ShowIf type={CommandType.RETURN_SHELF}>{returnShelf}</ShowIf>
         <ShowIf type={CommandType.UNDOCK_SHELF}>{undockShelf}</ShowIf>
@@ -104,12 +113,14 @@ export function SheetRow({
         <ShowIf type={CommandType.SPEAK}>{speak}</ShowIf>
         <ShowIf type={CommandType.CANCEL_COMMAND}>{cancelCommand}</ShowIf>
         <ShowIf type={CommandType.PROCEED}>{proceed}</ShowIf>
+        <ShowIf type={CommandType.HTTP_GET}>{httpGet}</ShowIf>
+        <ShowIf type={CommandType.HTTP_POST}>{httpPost}</ShowIf>
       </td>
       <td {...optProps}>{cancelAllInput}</td>
       <td {...optProps}>{deferrableInput}</td>
       <td {...optProps}>{ttsOnSuccessInput}</td>
       <td {...optProps}>{lockDurationSecInput} 秒</td>
-      <td>
+      <td style={bgStyle}>
         <button
           disabled={!modified}
           onClick={handleEdit}

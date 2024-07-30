@@ -1,8 +1,8 @@
 #include "screen.hpp"
 
+#include <M5Unified.h>
 #include <cmath>
 
-#include "common.hpp"
 #include "mutex.hpp"
 #include "settings.hpp"
 #include "version.hpp"

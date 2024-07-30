@@ -62,7 +62,7 @@ export function ObservedButtonList({
     <>
       <h2>見つかったボタン</h2>
       <div>
-        {buttons.filter((button) => !("m5_button" in button)).length === 0 ? (
+        {buttons.filter((button) => !("m5_button" in button || "hub_plus_button" in button)).length === 0 ? (
           <p style={{ textAlign: "center" }}>
             （ボタンを押すと、ここに表示されます）
           </p>

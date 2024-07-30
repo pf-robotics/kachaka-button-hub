@@ -98,6 +98,18 @@ export function useRangeInput(
   };
 }
 
+export function useTextArea(
+  defaultValue: string,
+  onChange?: (value: string) => void,
+) {
+  const [value, setValue] = useState(defaultValue);
+  const onChangeImpl = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setValue(e.target.value);
+    onChange?.(e.target.value);
+  };
+  return { value, onChange: onChangeImpl };
+}
+
 export function useCheckbox(
   defaultValue: boolean,
   onChange?: (value: boolean) => void,
@@ -113,6 +125,40 @@ export function useCheckbox(
 interface ShelfSelectOption {
   value: string;
   label: string;
+}
+
+export function useSelect(
+  options: string[],
+  defaultValue: string,
+  placeholderLabel?: string,
+): [string, JSX.IntrinsicElements["select"]] {
+  const [selectedValue, setSelectedValue] = useState(defaultValue);
+  const optionElems = useMemo(
+    () =>
+      options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      )),
+    [options],
+  );
+  const selectProps = useMemo(
+    () => ({
+      value: selectedValue,
+      onChange: (e: ChangeEvent<HTMLSelectElement>) =>
+        setSelectedValue(e.target.value),
+      children: options.includes(selectedValue)
+        ? optionElems
+        : [
+            <option key="unknown" value={selectedValue} disabled>
+              {placeholderLabel ?? "(選択してください)"}
+            </option>,
+            ...optionElems,
+          ],
+    }),
+    [options, placeholderLabel, selectedValue, optionElems],
+  );
+  return [selectedValue, selectProps];
 }
 
 export function useShelfSelect(
@@ -164,18 +210,21 @@ export function useShelfSelect(
 export function useLocationSelect(
   locations: Location[],
   defaultValue: string,
+  excludeCharger = false,
 ): [string | undefined, JSX.Element] {
   const [selectedLocationId, setSelectedLocationId] = useState<
     string | undefined
   >(defaultValue);
   const options = useMemo(
     () =>
-      locations.map((location) => (
-        <option key={location.id} value={location.id}>
-          {location.name}
-        </option>
-      )),
-    [locations],
+      locations
+        .filter((location) => !excludeCharger || location.type !== "charger")
+        .map((location) => (
+          <option key={location.id} value={location.id}>
+            {location.name}
+          </option>
+        )),
+    [locations, excludeCharger],
   );
   const isKnownId = (locations ?? [])
     .map((location) => location.id)
@@ -281,18 +330,34 @@ interface WifiRssiMessage {
   wifi_rssi: number;
 }
 
+interface WifiAp {
+  ssid: string;
+  bssid: string;
+  channel: number;
+  encryption_type: number;
+}
+
+interface WifiApListMessage {
+  type: "wifi_ap_list";
+  scanning: boolean;
+  wifi_ap_list: WifiAp[];
+}
+
 type WsMessage =
   | HubInfoMessage
   | RobotInfoMessage
   | SettingsMessage
   | ObservedButtonMessage
   | CommandsMessage
-  | WifiRssiMessage;
+  | WifiRssiMessage
+  | WifiApListMessage;
 
 let handle: number | undefined = undefined;
 
 export function useKachakaButtonHub(hubHost: string) {
-  const [online, setOnline] = useState(false);
+  const [networkState, setNetworkState] = useState<
+    "offline" | "online" | "unstable"
+  >("offline");
   const [hubInfo, setHubInfo] = useState<HubInfo>();
   const [robotInfo, setRobotInfo] = useState<RobotInfo>();
   const [settings, setSettings] = useState<Settings>();
@@ -300,6 +365,7 @@ export function useKachakaButtonHub(hubHost: string) {
   const [commands, setCommands] =
     useState<{ button: Button; command: Command }[]>();
   const [wifiRssi, setWifiRssi] = useState<number>();
+  const [wifiApList, setWifiApList] = useState<"scanning" | WifiAp[]>();
 
   const onMessage = useCallback((message: WebSocketEventMap["message"]) => {
     if (message?.data === undefined) {
@@ -337,12 +403,20 @@ export function useKachakaButtonHub(hubHost: string) {
     if (parsedMessage.type === "wifi_rssi") {
       setWifiRssi(parsedMessage.wifi_rssi);
     }
+    if (parsedMessage.type === "wifi_ap_list") {
+      setWifiApList(
+        parsedMessage.scanning ? "scanning" : parsedMessage.wifi_ap_list,
+      );
+    }
 
     if (handle) {
       clearTimeout(handle);
     }
-    handle = setTimeout(() => setOnline(false), 5000);
-    setOnline(true);
+    handle = setTimeout(() => {
+      setNetworkState("unstable");
+      handle = setTimeout(() => setNetworkState("offline"), 10 * 1000);
+    }, 5 * 1000);
+    setNetworkState("online");
   }, []);
 
   const { readyState } = useWebSocket(`ws://${hubHost}/ws`, {
@@ -358,12 +432,35 @@ export function useKachakaButtonHub(hubHost: string) {
   }, [readyState]);
 
   return {
-    online,
+    networkState,
     hubInfo,
     robotInfo,
     settings,
     buttons,
     commands,
     wifiRssi,
+    wifiApList,
   };
+}
+
+export function useFilteredCommandsAndButtons(
+  commands: { button: Button; command: Command }[] | undefined,
+  buttons: Button[] | undefined,
+  gpioButtonIsEnabled: boolean,
+): [{ button: Button; command: Command }[] | undefined, Button[] | undefined] {
+  const filteredCommands = useMemo(
+    () =>
+      commands?.filter(
+        ({ button }) => gpioButtonIsEnabled || !("gpio_button" in button),
+      ),
+    [commands, gpioButtonIsEnabled],
+  );
+  const filteredButtons = useMemo(
+    () =>
+      buttons?.filter(
+        (button) => gpioButtonIsEnabled || !("gpio_button" in button),
+      ),
+    [buttons, gpioButtonIsEnabled],
+  );
+  return [filteredCommands, filteredButtons];
 }

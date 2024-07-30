@@ -417,12 +417,17 @@ message GetTofCameraRosCompressedImageResponse {
   bool is_available = 3;
 }
 
+message LockOnEnd {
+  double duration_sec = 1;
+}
+
 message StartCommandRequest {
   Command command = 1;
   bool cancel_all = 2;
   string tts_on_success = 3;
   string title = 4;
   bool deferrable = 5;
+  LockOnEnd lock_on_end = 6;
 }
 
 message StartCommandResponse {

@@ -1,7 +1,6 @@
 #include "api.hpp"
 
 #include <Arduino.h>
-#include <optional>
 #include <pb_common.h>
 #include <pb_decode.h>
 #include <pb_encode.h>
@@ -9,7 +8,9 @@
 #include "ip_resolver.hpp"
 #include "kachaka-api.pb.h"
 #include "logging.hpp"
+#include "robot_version.hpp"
 #include "src/sh2lib/sh2lib.h"
+#include "types.hpp"
 
 namespace api {
 
@@ -81,7 +82,11 @@ static bool DecodeLocation(pb_istream_t* stream, const pb_field_t* /* field */,
   location.name.funcs.decode = DecodeString;
   location.name.arg = &out.name;
 
-  return pb_decode(stream, kachaka_api_Location_fields, &location);
+  if (pb_decode(stream, kachaka_api_Location_fields, &location)) {
+    out.type = static_cast<LocationType>(location.type);
+    return true;
+  }
+  return false;
 }
 
 static bool DecodeShortcut(pb_istream_t* stream, const pb_field_t* /* field */,
@@ -502,13 +507,19 @@ std::pair<ResultCode, String> GetRobotVersion() {
 
 static void FillCommandCommon(kachaka_api_StartCommandRequest& request,
                               const bool cancel_all, const char* tts_on_success,
-                              const bool deferrable, const char* title) {
+                              const bool deferrable,
+                              const LockOnEnd lock_on_end, const char* title) {
   request.cancel_all = cancel_all;
   if (tts_on_success) {
     request.tts_on_success.funcs.encode = EncodeString;
     request.tts_on_success.arg = const_cast<char*>(tts_on_success);
   }
   request.deferrable = deferrable;
+  request.has_lock_on_end = lock_on_end.enabled;
+  if (lock_on_end.enabled) {
+    request.lock_on_end.duration_sec = lock_on_end.duration_sec;
+  }
+
   if (title) {
     request.title.funcs.encode = EncodeString;
     request.title.arg = const_cast<char*>(title);
@@ -516,7 +527,8 @@ static void FillCommandCommon(kachaka_api_StartCommandRequest& request,
 }
 
 ResultCode ReturnHome(const bool cancel_all, const char* tts_on_success,
-                      const bool deferrable, const char* title) {
+                      const bool deferrable, const LockOnEnd lock_on_end,
+                      const char* title) {
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -524,7 +536,8 @@ ResultCode ReturnHome(const bool cancel_all, const char* tts_on_success,
       kachaka_api_StartCommandRequest_init_zero;
   request.has_command = true;
   request.command.which_command = kachaka_api_Command_return_home_command_tag;
-  FillCommandCommon(request, cancel_all, tts_on_success, deferrable, title);
+  FillCommandCommon(request, cancel_all, tts_on_success, deferrable,
+                    lock_on_end, title);
 
   EncodeSendAndWait(service, kachaka_api_StartCommandRequest_fields, &request);
   return g_result_code;
@@ -532,7 +545,7 @@ ResultCode ReturnHome(const bool cancel_all, const char* tts_on_success,
 
 ResultCode StartShortcut(const char* shortcut_id, const bool cancel_all,
                          const char* tts_on_success, const bool deferrable,
-                         const char* title) {
+                         const LockOnEnd lock_on_end, const char* title) {
   static Service service = {"StartShortcutCommand",
                             HandleStartShortcutCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
@@ -549,7 +562,7 @@ ResultCode StartShortcut(const char* shortcut_id, const bool cancel_all,
 
 ResultCode MoveToLocation(const char* location_id, const bool cancel_all,
                           const char* tts_on_success, const bool deferrable,
-                          const char* title) {
+                          const LockOnEnd lock_on_end, const char* title) {
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -562,7 +575,8 @@ ResultCode MoveToLocation(const char* location_id, const bool cancel_all,
       .encode = EncodeString;
   request.command.command.move_to_location_command.target_location_id.arg =
       const_cast<char*>(location_id);
-  FillCommandCommon(request, cancel_all, tts_on_success, deferrable, title);
+  FillCommandCommon(request, cancel_all, tts_on_success, deferrable,
+                    lock_on_end, title);
 
   EncodeSendAndWait(service, kachaka_api_StartCommandRequest_fields, &request);
   return g_result_code;
@@ -570,7 +584,7 @@ ResultCode MoveToLocation(const char* location_id, const bool cancel_all,
 
 ResultCode Speak(const char* text, const bool cancel_all,
                  const char* tts_on_success, const bool deferrable,
-                 const char* title) {
+                 const LockOnEnd lock_on_end, const char* title) {
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -580,7 +594,8 @@ ResultCode Speak(const char* text, const bool cancel_all,
   request.command.which_command = kachaka_api_Command_speak_command_tag;
   request.command.command.speak_command.text.funcs.encode = EncodeString;
   request.command.command.speak_command.text.arg = const_cast<char*>(text);
-  FillCommandCommon(request, cancel_all, tts_on_success, deferrable, title);
+  FillCommandCommon(request, cancel_all, tts_on_success, deferrable,
+                    lock_on_end, title);
 
   EncodeSendAndWait(service, kachaka_api_StartCommandRequest_fields, &request);
   return g_result_code;
@@ -588,7 +603,8 @@ ResultCode Speak(const char* text, const bool cancel_all,
 
 ResultCode MoveShelf(const char* shelf_id, const char* location_id,
                      const bool cancel_all, const char* tts_on_success,
-                     const bool deferrable, const char* title) {
+                     const bool deferrable, const LockOnEnd lock_on_end,
+                     const char* title) {
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -601,7 +617,8 @@ ResultCode MoveShelf(const char* shelf_id, const char* location_id,
   cmd.target_shelf_id.arg = const_cast<char*>(shelf_id);
   cmd.destination_location_id.funcs.encode = EncodeString;
   cmd.destination_location_id.arg = const_cast<char*>(location_id);
-  FillCommandCommon(request, cancel_all, tts_on_success, deferrable, title);
+  FillCommandCommon(request, cancel_all, tts_on_success, deferrable,
+                    lock_on_end, title);
 
   EncodeSendAndWait(service, kachaka_api_StartCommandRequest_fields, &request);
   return g_result_code;
@@ -609,7 +626,7 @@ ResultCode MoveShelf(const char* shelf_id, const char* location_id,
 
 ResultCode ReturnShelf(const char* shelf_id, const bool cancel_all,
                        const char* tts_on_success, const bool deferrable,
-                       const char* title) {
+                       const LockOnEnd lock_on_end, const char* title) {
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -621,14 +638,16 @@ ResultCode ReturnShelf(const char* shelf_id, const bool cancel_all,
       EncodeString;
   request.command.command.return_shelf_command.target_shelf_id.arg =
       const_cast<char*>(shelf_id);
-  FillCommandCommon(request, cancel_all, tts_on_success, deferrable, title);
+  FillCommandCommon(request, cancel_all, tts_on_success, deferrable,
+                    lock_on_end, title);
 
   EncodeSendAndWait(service, kachaka_api_StartCommandRequest_fields, &request);
   return g_result_code;
 }
 
 ResultCode UndockShelf(const bool cancel_all, const char* tts_on_success,
-                       const bool deferrable, const char* title) {
+                       const bool deferrable, const LockOnEnd lock_on_end,
+                       const char* title) {
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -636,7 +655,8 @@ ResultCode UndockShelf(const bool cancel_all, const char* tts_on_success,
       kachaka_api_StartCommandRequest_init_zero;
   request.has_command = true;
   request.command.which_command = kachaka_api_Command_undock_shelf_command_tag;
-  FillCommandCommon(request, cancel_all, tts_on_success, deferrable, title);
+  FillCommandCommon(request, cancel_all, tts_on_success, deferrable,
+                    lock_on_end, title);
 
   EncodeSendAndWait(service, kachaka_api_StartCommandRequest_fields, &request);
   return g_result_code;
@@ -651,7 +671,7 @@ ResultCode Lock(const double duration_sec, const char* title) {
   request.has_command = true;
   request.command.which_command = kachaka_api_Command_lock_command_tag;
   request.command.command.lock_command.duration_sec = duration_sec;
-  FillCommandCommon(request, false, nullptr, false, title);
+  FillCommandCommon(request, false, nullptr, false, LockOnEnd{}, title);
 
   EncodeSendAndWait(service, kachaka_api_StartCommandRequest_fields, &request);
   return g_result_code;

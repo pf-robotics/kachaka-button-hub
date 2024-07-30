@@ -21,7 +21,7 @@ enum class Error {
   kWatchdog180Sec,
 };
 
-void Begin(String ota_endpoint, const std::function<void()> on_start,
+void Begin(const std::function<void()> on_start,
            std::function<void(double /* percent */)> on_progress,
            std::function<void(bool /* success */)> on_end,
            std::function<void(Error)> on_error);
@@ -31,16 +31,13 @@ bool StartOtaByUrl(const String& ota_url);
 
 bool CheckOtaIsRequired(const String& current_version,
                         const String& new_version);
-String GetDesiredHubVersion();
-String GetOtaImageUrlByVersion(const String& version);
-
-// Start checking conditions for OTA on a worker FreeRTOS task.
-void StartOtaCheck();
+String GetDesiredHubVersion(const String& ota_endpoint);
+String GetOtaImageUrlByVersion(const String& ota_endpoint,
+                               const String& version);
 
 // Start OTA process after rebooting
 void RebootForOtaAfterBoot(const String& ota_url);
 
-// Call StartOtaCheck() conditionally.
-void StartOtaCheckIf(const std::function<bool()>& start_condition);
+String GetOtaImageUrlFromServerIfAvailable(const String& ota_endpoint);
 
 }  // namespace ota

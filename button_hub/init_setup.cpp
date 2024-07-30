@@ -1,43 +1,67 @@
 #include "init_setup.hpp"
 
+#include <M5Unified.h>
 #include <WiFi.h>
 
 #include "beep.hpp"
-#include "common.hpp"
 #include "lgfx/v1/lgfx_fonts.hpp"
 #include "qrcode.hpp"
+#include "server.hpp"
+#include "to_json.hpp"
+#include "wifi.hpp"
 
 InitialSetup::InitialSetup()
-    : prev_state_(State::kInit), next_state_(State::kWaitForWiFiClient) {}
+    : prev_state_(State::kInit), curr_state_(State::kInit) {}
 
 void InitialSetup::RunLoop() {
-  switch (next_state_) {
-    case State::kInit:
-      // Do something
-      break;
-    case State::kWaitForWiFiClient:
-      if (prev_state_ == State::kInit) {
-        WiFi.softAP(kApSsid, kApPass);
-        Serial.print("Hub IP: ");
-        Serial.println(WiFi.softAPIP());
-        DrawScreen(next_state_);
-        beep::PlayInitialSetupNext();
-      }
+  State next_state = curr_state_;
+  switch (curr_state_) {
+    case State::kInit: {
+      next_state = State::kWaitingForConnection;
+      DrawScreen(next_state);
+      beep::PlayInitialSetupNext();
+    } break;
+    case State::kWaitingForConnection:
       if (WiFi.softAPgetStationNum() > 0) {
-        next_state_ = State::kWaitForSettings;
-        DrawScreen(next_state_);
+        next_state = State::kWaitingForSettings;
+        DrawScreen(next_state);
         beep::PlayInitialSetupNext();
+        wifi::StartApScan();
+        server::EnqueueWsMessage(to_json::ConvertWiFiApList(true, {}));
       }
       break;
-    case State::kWaitForSettings:
+    case State::kWaitingForSettings:
+      // Wait for the result of the Wi-Fi AP scan
+      {
+        const auto& [state, wifi_ap_list] = wifi::GetScannedWiFiApList();
+        switch (state) {
+          case wifi::ScanState::kScanning:
+          case wifi::ScanState::kFailed:
+            break;
+          case wifi::ScanState::kSucceeded:
+            Serial.println("WiFi AP list:");
+            for (const auto& ap : wifi_ap_list) {
+              Serial.printf(" - %-24s %s %3d %d\n", ap.ssid.c_str(),
+                            ap.bssid.c_str(), ap.channel, ap.encryption_type);
+            }
+            server::EnqueueWsMessage(
+                to_json::ConvertWiFiApList(false, wifi_ap_list));
+            break;
+        }
+      }
       if (WiFi.softAPgetStationNum() == 0) {
-        next_state_ = State::kWaitForWiFiClient;
-        DrawScreen(next_state_);
+        next_state = State::kWaitingForConnection;
+        DrawScreen(next_state);
         beep::PlayInitialSetupPrev();
       }
       break;
   }
-  prev_state_ = next_state_;
+
+  // Transition
+  if (next_state != curr_state_) {
+    prev_state_ = curr_state_;
+    curr_state_ = next_state;
+  }
 
   // Reboot if any button is pressed
   M5.update();
@@ -56,7 +80,7 @@ void InitialSetup::RunLoop() {
     case State::kInit:
       M5.Lcd.fillScreen(TFT_RED);
       break;
-    case State::kWaitForWiFiClient: {
+    case State::kWaitingForConnection: {
       M5.Lcd.fillScreen(TFT_DARKGREEN);
       M5.Lcd.setFont(&lgfx::fonts::lgfxJapanGothicP_24);
       M5.Lcd.setTextDatum(TL_DATUM);
@@ -86,7 +110,7 @@ void InitialSetup::RunLoop() {
                         M5.Lcd.height() - 2);
       break;
     }
-    case State::kWaitForSettings: {
+    case State::kWaitingForSettings: {
       M5.Lcd.fillScreen(TFT_NAVY);
       M5.Lcd.setFont(&lgfx::fonts::lgfxJapanGothicP_24);
       M5.Lcd.setTextDatum(TL_DATUM);

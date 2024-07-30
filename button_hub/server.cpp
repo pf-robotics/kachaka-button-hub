@@ -12,6 +12,7 @@
 #include "settings.hpp"
 #include "to_json.hpp"
 #include "types.hpp"
+#include "wifi.hpp"
 
 namespace server {
 
@@ -19,12 +20,26 @@ static AsyncWebServer g_server(80);
 static kb::Mutex g_ws_mutex;
 static AsyncWebSocket g_ws("/ws");
 static std::set<AsyncWebSocketClient*> g_ws_clients;
+static std::vector<String> g_ws_message_queue;
 static int g_ws_client_count = 0;
 
-void SendToWs(const String& msg) {
+void EnqueueWsMessage(String msg) {
   const kb::LockGuard lock(g_ws_mutex);
-  for (auto& client : g_ws_clients) {
-    client->text(msg);
+  g_ws_message_queue.push_back(std::move(msg));
+}
+
+void FlushWsMessageQueue() {
+  if (g_ws_message_queue.empty()) {
+    return;
+  }
+  {
+    const kb::LockGuard lock(g_ws_mutex);
+    for (const String& msg : g_ws_message_queue) {
+      for (auto& client : g_ws_clients) {
+        client->text(msg);
+      }
+    }
+    g_ws_message_queue.clear();
   }
 }
 
@@ -38,6 +53,8 @@ static void SendAllToClient(AsyncWebSocketClient* client,
   client->text(to_json::ConvertObservedButtons(
       command_table.GetObservedButtons(), command_table.GetButtonNames()));
   client->text(to_json::ConvertCommands(command_table.GetCommands()));
+  const auto& [scanning, wifi_ap_list] = wifi::GetLatestScannedWiFiApList();
+  client->text(to_json::ConvertWiFiApList(scanning, wifi_ap_list));
 }
 
 static void OnWebSocketEvent(AsyncWebSocket* server,
@@ -54,7 +71,7 @@ static void OnWebSocketEvent(AsyncWebSocket* server,
       g_ws_client_count++;
     }
     SendAllToClient(client, robot_info, command_table);
-    SendToWs(to_json::ConvertHubInfo(g_ws_client_count));
+    EnqueueWsMessage(to_json::ConvertHubInfo(g_ws_client_count));
     if (g_settings.GetAutoRefetchOnUiLoad()) {
       fetch_state::FetchRobotInfoThrottled(&robot_info);
     }
@@ -72,7 +89,7 @@ static void OnWebSocketEvent(AsyncWebSocket* server,
     if (removed != 1) {
       Serial.printf("ERROR: Failed to remove client: %d\n", removed);
     }
-    SendToWs(to_json::ConvertHubInfo(g_ws_client_count));
+    EnqueueWsMessage(to_json::ConvertHubInfo(g_ws_client_count));
     return;
   }
   if (type == WS_EVT_ERROR) {
@@ -175,6 +192,25 @@ static void SetWifiHandler(AsyncWebServer& server) {
       [](AsyncWebServerRequest* request, const String& body) {
         HandleSetWiFi(request, body);
       });
+  RegisterReadEntry(
+      server, "/wifi_scan", HTTP_GET, [](AsyncWebServerRequest* request) {
+        server::EnqueueWsMessage(to_json::ConvertWiFiApList(true, {}));
+        delay(100);
+        wifi::StartApScan();
+        while (true) {
+          const auto& [state, wifi_ap_list] = wifi::GetScannedWiFiApList();
+          switch (state) {
+            case wifi::ScanState::kFailed:
+              request->send(500, "text/plain", "Failed to scan WiFi APs");
+              return;
+            case wifi::ScanState::kSucceeded:
+              EnqueueWsMessage(to_json::ConvertWiFiApList(false, wifi_ap_list));
+              request->send(200, "text/plain",
+                            "OK (" + String(wifi_ap_list.size()) + " APs)");
+              return;
+          }
+        }
+      });
   RegisterReadEntry(server, "/ota/desired_hub_version", HTTP_GET,
                     [](AsyncWebServerRequest* request) {
                       HandleGetDesiredHubVersion(request);
@@ -183,20 +219,15 @@ static void SetWifiHandler(AsyncWebServer& server) {
                      [](AsyncWebServerRequest* request, const String& body) {
                        HandleGetOtaImageUrlByVersion(request, body);
                      });
-  RegisterWriteEntry(
-      server, "/ota/trigger_auto", HTTP_POST,
-      [](AsyncWebServerRequest* request, const String& /* body */) {
-        HandleStartAutoOta(request);
-      });
   RegisterWriteEntry(server, "/ota/trigger_ota_by_url", HTTP_POST,
                      [](AsyncWebServerRequest* request, const String& body) {
                        HandleOtaByImageUrl(request, body);
                      });
 }
 
-static void SetAppHandler(AsyncWebServer& server, AsyncWebSocket& ws,
-                          RobotInfoHolder& robot_info,
-                          CommandTable& command_table) {
+static void SetWebSocketHandler(AsyncWebServer& server, AsyncWebSocket& ws,
+                                RobotInfoHolder& robot_info,
+                                CommandTable& command_table) {
   ws.onEvent([&robot_info, &command_table](
                  AsyncWebSocket* server, AsyncWebSocketClient* client,
                  AwsEventType type, void* arg, uint8_t* data, size_t len) {
@@ -204,7 +235,9 @@ static void SetAppHandler(AsyncWebServer& server, AsyncWebSocket& ws,
                      command_table);
   });
   server.addHandler(&ws);
+}
 
+static void SetAppHandler(AsyncWebServer& server, CommandTable& command_table) {
   RegisterGetAndPutEntry(
       server, "/config/robot_host",
       [](AsyncWebServerRequest* request) { HandleGetRobotHost(request); },
@@ -234,12 +267,28 @@ static void SetAppHandler(AsyncWebServer& server, AsyncWebSocket& ws,
         HandleSetAutoOtaIsEnabled(request, body);
       });
   RegisterGetAndPutEntry(
+      server, "/config/one_shot_auto_ota_is_enabled",
+      [](AsyncWebServerRequest* request) {
+        HandleGetOneShotAutoOtaIsEnabled(request);
+      },
+      [](AsyncWebServerRequest* request, const String& body) {
+        HandleSetOneShotAutoOtaIsEnabled(request, body);
+      });
+  RegisterGetAndPutEntry(
       server, "/config/auto_refetch_on_ui_load",
       [](AsyncWebServerRequest* request) {
         HandleGetAutoRefetchOnUiLoad(request);
       },
       [](AsyncWebServerRequest* request, const String& body) {
         HandleSetAutoRefetchOnUiLoad(request, body);
+      });
+  RegisterGetAndPutEntry(
+      server, "/config/gpio_button_is_enabled",
+      [](AsyncWebServerRequest* request) {
+        HandleGetGpioButtonIsEnabled(request);
+      },
+      [&command_table](AsyncWebServerRequest* request, const String& body) {
+        HandleSetGpioButtonIsEnabled(request, body, command_table);
       });
 
   RegisterGetAndPutEntry(
@@ -358,14 +407,17 @@ static void SetCommonSettings(AsyncWebServer& server) {
   Serial.println("HTTP server started");
 }
 
-void SetupHttpServerForWiFiSetting() {
+void SetupHttpServerForWiFiSetting(RobotInfoHolder& robot_info,
+                                   CommandTable& command_table) {
   SetWifiHandler(g_server);
+  SetWebSocketHandler(g_server, g_ws, robot_info, command_table);
   SetCommonSettings(g_server);
 }
 
 void SetupHttpServer(RobotInfoHolder& robot_info, CommandTable& command_table) {
   SetWifiHandler(g_server);
-  SetAppHandler(g_server, g_ws, robot_info, command_table);
+  SetWebSocketHandler(g_server, g_ws, robot_info, command_table);
+  SetAppHandler(g_server, command_table);
   SetCommonSettings(g_server);
 }
 

@@ -2,12 +2,13 @@ import { useMemo } from "react";
 
 import { RobotInfo, CommandType, Command } from "./types";
 import {
-  useInput,
   useCheckbox,
-  useShelfSelect,
+  useInput,
   useLocationSelect,
-  useShortcutSelect,
   useNumberInput,
+  useShelfSelect,
+  useShortcutSelect,
+  useTextArea,
 } from "./hooks";
 import { isEqual } from "./utils";
 
@@ -21,6 +22,7 @@ export function useCommandEditor(
     command.type === CommandType.MOVE_SHELF
       ? command.move_shelf.location_id
       : robotInfo?.locations?.[0]?.id ?? "",
+    /* excludeCharger= */ true,
   );
   const [moveShelfShelfId, moveShelfShelfSelect] = useShelfSelect(
     robotInfo?.shelves ?? [],
@@ -47,9 +49,19 @@ export function useCommandEditor(
       command.type === CommandType.MOVE_TO_LOCATION
         ? command.move_to_location.location_id
         : robotInfo?.locations?.[0]?.id ?? "",
+      /* excludeCharger= */ true,
     );
   const speakInput = useInput(
     command.type === CommandType.SPEAK ? command.speak.text : "",
+  );
+  const httpGetUrlInput = useInput(
+    command.type === CommandType.HTTP_GET ? command.http_get.url : "",
+  );
+  const httpPostUrlInput = useInput(
+    command.type === CommandType.HTTP_POST ? command.http_post.url : "",
+  );
+  const httpPostBodyInput = useTextArea(
+    command.type === CommandType.HTTP_POST ? command.http_post.body : "",
   );
   const cancelAllInput = useCheckbox(command.cancel_all);
   const ttsOnSuccessInput = useInput(command.tts_on_success ?? "");
@@ -117,7 +129,7 @@ export function useCommandEditor(
           ...out,
           type: CommandType.SPEAK,
           speak: {
-            text: speakInput.value ?? "",
+            text: speakInput.value,
           },
         };
         break;
@@ -131,6 +143,25 @@ export function useCommandEditor(
         out = {
           ...out,
           type: CommandType.CANCEL_COMMAND,
+        };
+        break;
+      case CommandType.HTTP_GET:
+        out = {
+          ...out,
+          type: CommandType.HTTP_GET,
+          http_get: {
+            url: httpGetUrlInput.value,
+          },
+        };
+        break;
+      case CommandType.HTTP_POST:
+        out = {
+          ...out,
+          type: CommandType.HTTP_POST,
+          http_post: {
+            url: httpPostUrlInput.value,
+            body: httpPostBodyInput.value,
+          },
         };
         break;
       default:
@@ -158,6 +189,9 @@ export function useCommandEditor(
     moveToLocationLocationId,
     shortcutId,
     speakInput.value,
+    httpGetUrlInput.value,
+    httpPostUrlInput.value,
+    httpPostBodyInput.value,
     cancelAllInput.checked,
     ttsOnSuccessInput.value,
     deferrableInput.checked,
@@ -193,6 +227,32 @@ export function useCommandEditor(
     ),
     cancelCommand: <>実行中のコマンドをキャンセル</>,
     proceed: <>待機状態を解除</>,
+    httpGet: (
+      <>
+        <input
+          style={{ maxWidth: "50vw" }}
+          {...httpGetUrlInput}
+          placeholder="URL"
+        />{" "}
+        に GET リクエストを送信
+      </>
+    ),
+    httpPost: (
+      <>
+        <input
+          style={{ maxWidth: "50vw" }}
+          {...httpPostUrlInput}
+          placeholder="URL"
+        />{" "}
+        に POST リクエストを送信
+        <br />
+        <textarea
+          style={{ width: "calc(100% - 16px)" }}
+          {...httpPostBodyInput}
+          placeholder="Body"
+        />
+      </>
+    ),
     cancelAllInput: <input {...cancelAllInput} disabled={disableOptions} />,
     ttsOnSuccessInput: (
       <input {...ttsOnSuccessInput} disabled={disableOptions} />

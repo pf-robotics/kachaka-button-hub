@@ -1,3 +1,4 @@
+#include <M5Unified.h>
 #include <SPIFFS.h>
 #include <TickTwo.h>
 #include <memory>
@@ -6,9 +7,10 @@
 #include "api_mutex.hpp"
 #include "beep.hpp"
 #include "bluetooth.hpp"
+#include "bluetooth_beacon.hpp"
 #include "command_table.hpp"
-#include "common.hpp"
 #include "fetch_state.hpp"
+#include "gpio_button.hpp"
 #include "init_setup.hpp"
 #include "ip_resolver.hpp"
 #include "logging.hpp"
@@ -26,10 +28,9 @@
 
 constexpr int kButtonIgnoreDurationSec = 11;
 constexpr int kMaxObservedButtonCount = 10;
-constexpr int kAutoOtaCheckAfterBootMSec = 30 * 1000;
-constexpr int kMaxAutoOtaTrialCount = 8;
+constexpr int kMaxAutoOtaTrialCount = 3;
 
-constexpr int kBluetoothSetupIntervalMsec = 1 * 1000;
+constexpr int kBluetoothBeaconSetupIntervalMsec = 1 * 1000;
 constexpr int kWiFiSignalUpdateIntervalMSec = 1 * 1000;
 constexpr int kRebootCheckIntervalMSec = 60 * 1000;
 constexpr int kDrawClockIntervalMSec = 2 * 1000;
@@ -109,7 +110,7 @@ static void HandleButtonPressed(const KButton& button,
   }
 
   g_command_table.NotifyObservedButton(button, estimated_distance);
-  server::SendToWs(to_json::ConvertObservedButtons(
+  server::EnqueueWsMessage(to_json::ConvertObservedButtons(
       g_command_table.GetObservedButtons(), g_command_table.GetButtonNames()));
 
   Command command;
@@ -128,25 +129,35 @@ static void HandleButtonPressed(const KButton& button,
   }
 }
 
+void RegisterOrUnregisterGpioButtonAccordingToSettings(
+    bool gpio_button_is_enabled, CommandTable& command_table) {
+  static bool prev = false;
+  if (gpio_button_is_enabled != prev) {
+    if (gpio_button_is_enabled) {
+      gpio_button::Register(command_table);
+    } else {
+      gpio_button::Unregister(command_table);
+    }
+    prev = gpio_button_is_enabled;
+  }
+}
+
 static void SendWifiRssi() {
   const int rssi = WiFi.RSSI();
   screen::DrawWiFiSignalStrength(WiFi.status() == WL_CONNECTED, rssi);
-  server::SendToWs("{\"type\":\"wifi_rssi\",\"wifi_rssi\":" + String(rssi) +
-                   "}");
+  server::EnqueueWsMessage(
+      "{\"type\":\"wifi_rssi\",\"wifi_rssi\":" + String(rssi) + "}");
 }
 
 static void CheckReboot() {
   // a.m. 5:00
   static int prev_hour = -1;
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
+  if (!getLocalTime(&timeinfo, 10)) {
     return;
   }
-  Serial.printf("%04d-%02d-%02d %02d:%02d:%02d ", timeinfo.tm_year + 1900,
-                timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour,
-                timeinfo.tm_min, timeinfo.tm_sec);
   if (prev_hour == 4 && timeinfo.tm_hour == 5) {
-    Serial.println("Rebooting due to a.m. 5 ...");
+    logging::Log("Rebooting due to a.m. 5 ...");
     ESP.restart();
   }
   prev_hour = timeinfo.tm_hour;
@@ -157,7 +168,7 @@ static void CheckReboot() {
     last_connected_time = millis();
   } else {
     if (millis() - last_connected_time > 3 * 60 * 1000) {
-      Serial.println("Rebooting due to disconnection ...");
+      logging::Log("Rebooting due to disconnection ...");
       ESP.restart();
     }
   }
@@ -195,8 +206,8 @@ static void InitSpiffs() {
   }
 }
 
-static bluetooth::SetupTicker g_bluetooth_setup(
-    kBluetoothSetupIntervalMsec,
+static bluetooth_beacon::SetupTicker g_bluetooth_beacon_setup(
+    kBluetoothBeaconSetupIntervalMsec,
     []() {
       return g_robot.has_robot_version && g_robot.has_shelves &&
              g_robot.has_locations && g_robot.has_shortcuts;
@@ -210,8 +221,8 @@ static TickTwo g_count_down_reboot_timer(CountDownReboot,
 
 enum class Mode {
   kUnknown,
-  kWiFiAp,
-  kWiFiClient,
+  kInitialSetup,
+  kButtonServer,
   kOtaAfterBoot,
 };
 static Mode g_mode = Mode::kUnknown;
@@ -240,24 +251,52 @@ void setup() {
   logging::Begin(g_settings.GetNextLoggingId());
   logging::Log("Start");
 
-  const bool continue_to_app = ConnectToWiFi(
-      g_settings.GetWiFiSsid().c_str(), g_settings.GetWiFiPass().c_str(), []() {
-        M5.update();
-        return g_settings.GetWiFiSsid().isEmpty() || M5.BtnA.isPressed();
-      });
-  if (continue_to_app) {
-    const String ota_url = g_settings.GetOtaUrlAfterBoot();
+  bluetooth::Init();
+
+  const wifi::ConnectState wifi_connect_state =
+      wifi::ConnectToWiFi(g_settings.GetWiFiSsid().c_str(),
+                          g_settings.GetWiFiPass().c_str(), 60 * 1000, true);
+  if (wifi_connect_state == wifi::ConnectState::kTimeout) {
+    ESP.restart();
+  } else if (wifi_connect_state == wifi::ConnectState::kConnected) {
+    if (!g_settings.GetNtpServer().isEmpty()) {
+      configTime(9 * 3600, 0, g_settings.GetNtpServer().c_str());
+    }
+    // Manual OTA?
+    String ota_url = g_settings.GetOtaUrlAfterBoot();
     if (!ota_url.isEmpty()) {
       g_settings.SetOtaUrlAfterBoot("");
+    }
+    // Auto OTA?
+    if ((g_settings.GetAutoOtaIsEnabled() ||
+         g_settings.GetOneShotAutoOtaIsEnabled()) &&
+        ota_url.isEmpty()) {
+      ota_url =
+          ota::GetOtaImageUrlFromServerIfAvailable(g_settings.GetOtaEndpoint());
+      if (g_settings.GetOtaFailCount() >= kMaxAutoOtaTrialCount) {
+        Serial.println("Auto OTA is turned off due to failure count");
+        g_settings.SetAutoOtaIsEnabled(false);
+        g_settings.ClearOtaFailCount();
+        ota_url.clear();
+      }
+      g_settings.SetOneShotAutoOtaIsEnabled(false);
+    }
+    // OTA or App
+    if (!ota_url.isEmpty()) {
       SetupAsOtaAfterBoot(ota_url);
       g_mode = Mode::kOtaAfterBoot;
     } else {
       SetupAsWiFiClient();
-      g_mode = Mode::kWiFiClient;
+      g_mode = Mode::kButtonServer;
     }
   } else {
-    server::SetupHttpServerForWiFiSetting();
-    g_mode = Mode::kWiFiAp;
+    WiFi.softAP(kApSsid, kApPass);
+    Serial.print("Hub IP: ");
+    Serial.println(WiFi.softAPIP());
+
+    server::SetupHttpServerForWiFiSetting(g_robot, g_command_table);
+
+    g_mode = Mode::kInitialSetup;
   }
 }
 
@@ -267,11 +306,11 @@ static void DrawScreen() {
   switch (g_page) {
     case Page::kMain:
       screen::DrawMainPage(g_settings.GetWiFiSsid().c_str(),
-                           GetIPAddress().c_str(),
+                           wifi::GetIpAddress().c_str(),
                            g_settings.GetRobotHost().c_str());
       break;
     case Page::kSetting:
-      screen::DrawSettingPage(GetIPAddress().c_str());
+      screen::DrawSettingPage(wifi::GetIpAddress().c_str());
       break;
     case Page::kOta:
       screen::DrawOtaPage();
@@ -281,16 +320,20 @@ static void DrawScreen() {
 
 static void SetupOta() {
   ota::Begin(
-      g_settings.GetOtaEndpoint(),
-      []() {
+      []() {  // on_start
         server::Stop();
-        bluetooth::Stop();
+        bluetooth_beacon::Stop();
         ping_to_robot::Stop();
         g_page = Page::kOta;
         DrawScreen();
+        // Increment fail count here to avoid the case where the device
+        // reboots without incrementing the fail count.
+        g_settings.IncrementOtaFailCount();
       },
-      [](double percent) { screen::DrawOtaProgress(percent); },
-      [](bool success) {
+      [](double percent) {  // on_progress
+        screen::DrawOtaProgress(percent);
+      },
+      [](bool success) {  // on_end
         if (success) {
           beep::PlayOtaCompleted();
           g_settings.ClearOtaFailCount();
@@ -302,11 +345,10 @@ static void SetupOta() {
           g_count_down_reboot_timer.start();
         }
       },
-      [](ota::Error error) {
+      [](ota::Error error) {  // on_error
         screen::DrawOtaError(error);
         if (error == ota::Error::kWatchdogNow) {
-          const int count = g_settings.IncrementOtaFailCount();
-          Serial.printf("OTA fail count: %d\n", count);
+          Serial.printf("OTA fail count: %d\n", g_settings.GetOtaFailCount());
           beep::PlayOtaFailed();
           delay(1000);
           ESP.restart();
@@ -344,32 +386,19 @@ static void SetupAsWiFiClient() {
   g_command_table.SetButtonName(KButton(M5Button(2)), "HubボタンA");
   g_command_table.SetButtonName(KButton(M5Button(3)), "HubボタンB");
   g_command_table.Save();
-  server::SendToWs(to_json::ConvertObservedButtons(
+  server::EnqueueWsMessage(to_json::ConvertObservedButtons(
       g_command_table.GetObservedButtons(), g_command_table.GetButtonNames()));
 
-  if (g_settings.GetOtaFailCount() >= kMaxAutoOtaTrialCount &&
-      g_settings.GetAutoOtaIsEnabled()) {
-    Serial.println("Auto OTA turned off due to fail count");
-    g_settings.SetAutoOtaIsEnabled(false);
-    g_settings.ClearOtaFailCount();
-  }
-
-  SetupOta();
-
-  if (!g_settings.GetNtpServer().isEmpty()) {
-    configTime(9 * 3600, 0, g_settings.GetNtpServer().c_str());
-    g_reboot_timer.start();
-  }
+  g_reboot_timer.start();
   g_clock_timer.start();
 
-  g_bluetooth_setup.Start();
+  g_bluetooth_beacon_setup.Start();
 }
 
 void loop() {
-  if (g_mode == Mode::kWiFiAp) {
+  if (g_mode == Mode::kInitialSetup) {
     g_initial_setup.RunLoop();
-  }
-  if (g_mode == Mode::kOtaAfterBoot) {
+  } else if (g_mode == Mode::kOtaAfterBoot) {
     M5.update();
     if (M5.BtnB.wasPressed()) {
       beep::PlayOtaFailed();
@@ -378,8 +407,7 @@ void loop() {
     }
     g_wifi_rssi_timer.update();
     g_clock_timer.update();
-  }
-  if (g_mode == Mode::kWiFiClient) {
+  } else if (g_mode == Mode::kButtonServer) {
     M5.update();
     bool need_redraw = false;
     if (M5.BtnA.wasPressed() &&
@@ -397,6 +425,9 @@ void loop() {
         if (M5.BtnC.wasPressed()) {
           HandleButtonPressed(KButton(M5Button(3)), -1);
         }
+        gpio_button::HandleEvents([](const KButton& pressed_button) {
+          HandleButtonPressed(pressed_button, -1);
+        });
         screen::DrawStatusInMainPage(!fetch_state::IsCompleted(),
                                      g_robot.has_robot_version,
                                      g_robot.has_shelves, g_robot.has_locations,
@@ -424,18 +455,15 @@ void loop() {
     } else {
       Serial.println("Failed to lock button_queue mutex");
     }
-    if (g_settings.GetAutoOtaIsEnabled()) {
-      ota::StartOtaCheckIf([]() {
-        return millis() > kAutoOtaCheckAfterBootMSec &&
-               fetch_state::IsCompleted();
-      });
-    }
-    g_bluetooth_setup.Update();
+    RegisterOrUnregisterGpioButtonAccordingToSettings(
+        g_settings.GetGpioButtonIsEnabled(), g_command_table);
+    g_bluetooth_beacon_setup.Update();
     g_wifi_rssi_timer.update();
     g_reboot_timer.update();
     g_clock_timer.update();
     g_count_down_reboot_timer.update();
   }
+  server::FlushWsMessageQueue();
   logging::Update();
-  vTaskDelay(50);
+  delay(5);
 }

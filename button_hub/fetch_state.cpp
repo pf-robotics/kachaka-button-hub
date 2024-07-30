@@ -1,8 +1,9 @@
 #include "fetch_state.hpp"
 
+#include <M5Unified.h>
+
 #include "api.hpp"
 #include "api_mutex.hpp"
-#include "common.hpp"
 #include "mutex.hpp"
 #include "server.hpp"
 #include "to_json.hpp"
@@ -23,7 +24,7 @@ static int32_t g_last_fetch = 0;
 static constexpr int32_t kInterval = 30 * 1000;
 
 static void FetchImpl(RobotInfoHolder& out) {
-  server::SendToWs(to_json::ConvertRobotInfo(out));
+  server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
 
   while (!out.has_robot_version) {
     auto [code, robot_version] = api::GetRobotVersion();
@@ -31,7 +32,7 @@ static void FetchImpl(RobotInfoHolder& out) {
       out.robot_version = std::move(robot_version);
       Serial.printf(" * robot_version = %s\n", out.robot_version.c_str());
       out.has_robot_version = true;
-      server::SendToWs(to_json::ConvertRobotInfo(out));
+      server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
     } else {
       Serial.printf("Failed to get version: %s\n",
                     api::ResultCodeToString(code));
@@ -49,7 +50,7 @@ static void FetchImpl(RobotInfoHolder& out) {
       }
       done = true;
       out.has_shelves = true;
-      server::SendToWs(to_json::ConvertRobotInfo(out));
+      server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
     } else {
       Serial.printf("Failed to get shelves: %s\n",
                     api::ResultCodeToString(code));
@@ -62,12 +63,13 @@ static void FetchImpl(RobotInfoHolder& out) {
     auto [code, locations] = api::GetLocations();
     if (code == api::ResultCode::kOk) {
       out.locations = std::move(locations);
-      for (const auto& [id, name] : out.locations) {
-        Serial.printf(" * %s: %s\n", id.c_str(), name.c_str());
+      for (const auto& [id, name, type] : out.locations) {
+        Serial.printf(" * %s: %s (%s)\n", id.c_str(), name.c_str(),
+                      GetLocationTypeString(type).c_str());
       }
       done = true;
       out.has_locations = true;
-      server::SendToWs(to_json::ConvertRobotInfo(out));
+      server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
     } else {
       Serial.printf("Failed to get locations: %s\n",
                     api::ResultCodeToString(code));
@@ -85,7 +87,7 @@ static void FetchImpl(RobotInfoHolder& out) {
       }
       done = true;
       out.has_shortcuts = true;
-      server::SendToWs(to_json::ConvertRobotInfo(out));
+      server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
     } else {
       Serial.printf("Failed to get shortcuts: %s\n",
                     api::ResultCodeToString(code));

@@ -21,14 +21,22 @@ export function SettingPage({
   settings: Settings | undefined;
   robotHost: string | undefined;
 }) {
-  const [manualOtaStarted, setManualOtaStarted] = useState(false);
-
+  const triggerReboot = () => {
+    fetch(`http://${hubHost}/reboot`).then(
+      () => (window.location.hash = "#reboot"),
+    );
+  };
   const handleManualOta = () => {
-    setManualOtaStarted(true);
-    fetch(`http://${hubHost}/ota/trigger_auto`, {
-      method: "POST",
+    fetch(`http://${hubHost}/config/one_shot_auto_ota_is_enabled`, {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ one_shot_auto_ota_is_enabled: true }),
+    }).then((r) => {
+      if (r.ok) {
+        triggerReboot();
+      } else {
+        window.alert("アップデートの開始に失敗しました");
+      }
     });
   };
   const [desiredHubVersion, setDesiredHubVersion] = useState<string>();
@@ -75,7 +83,14 @@ export function SettingPage({
         path="/config/auto_refetch_on_ui_load"
         fieldKey="auto_refetch_on_ui_load"
         value={settings?.auto_refetch_on_ui_load}
-        label="設定画面を開くたびに家具・目的地の情報をカチャカから再取得する"
+        label="カチャカボタンHub画面をリロードすると家具・目的地の情報をカチャカから再取得する（実験的機能）"
+      />
+      <CheckboxConfigEditor
+        hubHost={hubHost}
+        path="/config/gpio_button_is_enabled"
+        fieldKey="gpio_button_is_enabled"
+        value={settings?.gpio_button_is_enabled}
+        label="Hub Plusボタンを有効にする（専用ハードウェア）"
       />
 
       <h3>Wi-Fiの設定</h3>
@@ -114,23 +129,36 @@ export function SettingPage({
                 )}
               </div>
             </div>
-            <div
-              className={
-                otaIsRequired !== true || manualOtaStarted
-                  ? "disabled"
-                  : undefined
-              }
-            >
-              <button
-                disabled={otaIsRequired !== true || manualOtaStarted}
+            <div className={otaIsRequired !== true ? "disabled" : undefined}>
+              <ButtonWithConfirmation
+                disabled={otaIsRequired !== true}
                 onClick={handleManualOta}
+                confirmText={
+                  <>
+                    アップデートの確認のため再起動します。
+                    <br />
+                    よろしいですか？
+                  </>
+                }
+                confirmButtonText="再起動してアップデート"
+                style={{ margin: 4 }}
               >
                 アップデートを開始する
-              </button>
+              </ButtonWithConfirmation>
             </div>
           </div>
         </>
       )}
+
+      <h3>再起動</h3>
+      <ButtonWithConfirmation
+        onClick={triggerReboot}
+        confirmText="ボタンHubを再起動しますか？"
+        confirmButtonText="再起動"
+        style={{ margin: 4 }}
+      >
+        Hubの再起動
+      </ButtonWithConfirmation>
 
       <h3>データの初期化</h3>
       <ButtonWithConfirmation

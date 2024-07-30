@@ -1,10 +1,10 @@
 #include "ip_resolver.hpp"
 
+#include <M5Unified.h>
 #include <WiFi.h>
 #include <cctype>
-#include <string>
 
-#include "common.hpp"
+#include "logging.hpp"
 
 namespace ip_resolver {
 
@@ -33,14 +33,14 @@ String GetIpAddressIfPossible(const String& hostname, const bool debug_print) {
   }
 
   if (debug_print) {
-    Serial.printf("IpResolver: Resolving %s (%s)\n", hostname.c_str(),
-                  hostname_for_query.c_str());
+    logging::Log("IpResolver: Resolving %s (%s)", hostname.c_str(),
+                 hostname_for_query.c_str());
   }
   IPAddress ip;
   if (WiFi.hostByName(hostname_for_query.c_str(), ip)) {
     if (debug_print) {
-      Serial.printf("IpResolver: Resolved %s to %s\n",
-                    hostname_for_query.c_str(), ip.toString().c_str());
+      logging::Log("IpResolver: Resolved %s to %s", hostname_for_query.c_str(),
+                   ip.toString().c_str());
     }
     s_hostname_cached = hostname;
     s_ip_cached = ip.toString();
@@ -48,15 +48,16 @@ String GetIpAddressIfPossible(const String& hostname, const bool debug_print) {
   }
   if (hostname == s_hostname_cached) {
     if (debug_print) {
-      Serial.printf("IpResolver: Use cached IP %s for %s\n",
-                    s_ip_cached.c_str(), hostname.c_str());
+      logging::Log("IpResolver: Use cached IP %s for %s", s_ip_cached.c_str(),
+                   hostname.c_str());
     }
     return s_ip_cached;
   }
   if (debug_print) {
-    Serial.printf("IpResolver: Use hostname %s as-is\n", hostname.c_str());
+    logging::Log("IpResolver: Use hostname %s as-is",
+                 hostname_for_query.c_str());
   }
-  return hostname;
+  return hostname_for_query;
 }
 
 String GetCachedIpAddressOrPassthrough(const String& hostname) {

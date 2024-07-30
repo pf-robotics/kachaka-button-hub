@@ -17,14 +17,20 @@ void HandleSetScreenBrightness(AsyncWebServerRequest* request,
 void HandleGetAutoOtaIsEnabled(AsyncWebServerRequest* request);
 void HandleSetAutoOtaIsEnabled(AsyncWebServerRequest* request,
                                const String& body);
+void HandleGetOneShotAutoOtaIsEnabled(AsyncWebServerRequest* request);
+void HandleSetOneShotAutoOtaIsEnabled(AsyncWebServerRequest* request,
+                                      const String& body);
 void HandleGetAutoRefetchOnUiLoad(AsyncWebServerRequest* request);
 void HandleSetAutoRefetchOnUiLoad(AsyncWebServerRequest* request,
                                   const String& body);
+void HandleGetGpioButtonIsEnabled(AsyncWebServerRequest* request);
+void HandleSetGpioButtonIsEnabled(AsyncWebServerRequest* request,
+                                  const String& body,
+                                  CommandTable& command_table);
 
 void HandleGetDesiredHubVersion(AsyncWebServerRequest* request);
 void HandleGetOtaImageUrlByVersion(AsyncWebServerRequest* request,
                                    const String& body);
-void HandleStartAutoOta(AsyncWebServerRequest* request);
 void HandleOtaByImageUrl(AsyncWebServerRequest* request, const String& body);
 
 void HandleClearAllData(AsyncWebServerRequest* krequest,

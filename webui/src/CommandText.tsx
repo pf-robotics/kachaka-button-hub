@@ -85,4 +85,10 @@ export function CommandText({
   if (command.type === CommandType.CANCEL_COMMAND) {
     return `実行中のコマンドをキャンセル`;
   }
+  if (command.type === CommandType.HTTP_GET) {
+    return `GETリクエストを送信`;
+  }
+  if (command.type === CommandType.HTTP_POST) {
+    return `POSTリクエストを送信`;
+  }
 }

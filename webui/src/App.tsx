@@ -1,10 +1,10 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
-import { useKachakaButtonHub } from "./hooks";
+import { useKachakaButtonHub, useFilteredCommandsAndButtons } from "./hooks";
 
 import { Button, CommandType, Command, GetButtonId } from "./types";
 import { Backdrop } from "./Backdrop";
-import { ClientCountWarning } from "./ClientCountWarning";
+import { StackedWarning } from "./StackedWarning";
 import { CommandEditor } from "./CommandEditor";
 import { MainCardUi } from "./MainCardUi";
 import { InitialUi } from "./InitialUi";
@@ -19,21 +19,39 @@ import { TopHeader } from "./TopHeader";
 
 const HUB_HOST = getHubHost();
 
-export function App() {
-  const { online, hubInfo, robotInfo, settings, buttons, commands, wifiRssi } =
-    useKachakaButtonHub(HUB_HOST);
+export function App({
+  page,
+  setPage,
+}: {
+  page: Page;
+  setPage: (page: Page) => void;
+}) {
+  const {
+    networkState,
+    hubInfo,
+    robotInfo,
+    settings,
+    buttons,
+    commands,
+    wifiRssi,
+  } = useKachakaButtonHub(HUB_HOST);
+
+  const [filterredCommands, filterredButtons] = useFilteredCommandsAndButtons(
+    commands,
+    buttons,
+    settings?.gpio_button_is_enabled ?? false,
+  );
 
   const buttonIdToNameMap = useMemo(
     () =>
       new Map(
-        buttons
+        filterredButtons
           ?.map((button) => [GetButtonId(button), button.name])
           .filter((x): x is [string, string] => x[1] !== undefined),
       ),
-    [buttons],
+    [filterredButtons],
   );
 
-  const [page, setPage] = useState<Page>("home");
   const [progressCount, setProgressCount] = useState(0);
 
   const editCommand = useCallback((button: Button, command: Command) => {
@@ -114,6 +132,25 @@ export function App() {
   const enableShortcutFeature =
     robotVersionInt === undefined || robotVersionInt >= getIntVersion("3.1.0");
 
+  const [warnings, setWarnings] = useState<JSX.Element[]>([]);
+  useEffect(() => {
+    const out: JSX.Element[] = [];
+    if (hubInfo && hubInfo.client_count > 2) {
+      out.push(
+        <>
+          ⚠
+          接続中の画面数が多くなっています。ボタンの動作に影響するため、接続数を減らしてください。
+          <br />
+          <b>接続中の設定画面 : {hubInfo.client_count}</b>
+        </>,
+      );
+    }
+    if (networkState === "unstable") {
+      out.push(<>⚠ ネットワーク接続が不安定です。</>);
+    }
+    setWarnings(out);
+  }, [hubInfo, networkState]);
+
   return (
     <>
       <TopHeader>
@@ -141,8 +178,8 @@ export function App() {
             />
           ) : (
             <MainCardUi
-              buttons={buttons}
-              commands={commands}
+              buttons={filterredButtons}
+              commands={filterredCommands}
               buttonIdToNameMap={buttonIdToNameMap}
               robotInfo={robotInfo}
               onEdit={editCommand}
@@ -156,13 +193,15 @@ export function App() {
           )
         ) : page === "sheet" ? (
           <Sheet
-            commands={commands}
+            buttons={filterredButtons}
+            commands={filterredCommands}
             buttonIdToNameMap={buttonIdToNameMap}
             robotInfo={robotInfo}
             enableShortcutFeature={enableShortcutFeature}
             onEdit={editCommand}
             onDelete={deleteCommand}
             onSetButtonName={setButtonName}
+            onDeleteButtonName={deleteButtonName}
           />
         ) : page === "info" ? (
           <LogList hubHost={HUB_HOST} onDelete={deleteLog} />
@@ -207,17 +246,15 @@ export function App() {
           fontSize: "1.2em",
         }}
       >
-        <WiFiSignalLevel online={online} rssi={wifiRssi} />
+        <WiFiSignalLevel online={networkState === "online"} rssi={wifiRssi} />
       </div>
-      {hubInfo && hubInfo.client_count > 2 && (
-        <ClientCountWarning clientCount={hubInfo.client_count} />
-      )}
+      {warnings.length > 0 && <StackedWarning items={warnings} />}
       {progressCount > 0 && (
         <Backdrop alpha={0.4}>
           <p>処理中...</p>
         </Backdrop>
       )}
-      {online === false && (
+      {networkState === "offline" && (
         <Backdrop>
           <p>カチャカボタンHubに接続を試みています</p>
           <p>

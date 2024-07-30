@@ -174,6 +174,34 @@ bool ConvertCommandJson(JsonObject& root, KButton& out_button,
       out_command.lock_duration_sec = 0.0;
       break;
     }
+    case static_cast<int>(CommandType::HTTP_GET): {
+      if (!command.containsKey("http_get")) {
+        Serial.println("ERROR: Invalid JSON");
+        return false;
+      }
+      const JsonObject& http_get = command["http_get"];
+      if (!http_get.containsKey("url")) {
+        Serial.println("ERROR: Invalid JSON");
+        return false;
+      }
+      out_command.type = CommandType::HTTP_GET;
+      out_command.http_get = {http_get["url"]};
+      break;
+    }
+    case static_cast<int>(CommandType::HTTP_POST): {
+      if (!command.containsKey("http_post")) {
+        Serial.println("ERROR: Invalid JSON");
+        return false;
+      }
+      const JsonObject& http_post = command["http_post"];
+      if (!http_post.containsKey("url") || !http_post.containsKey("body")) {
+        Serial.println("ERROR: Invalid JSON");
+        return false;
+      }
+      out_command.type = CommandType::HTTP_POST;
+      out_command.http_post = {http_post["url"], http_post["body"]};
+      break;
+    }
   }
   return true;
 }
@@ -209,6 +237,17 @@ bool ConvertButtonJson(JsonObject json, KButton& out) {
     const int id = m5_json["id"].as<int>();
     M5Button m5_button(id);
     out = KButton(m5_button);
+    return true;
+  }
+  if (json.containsKey("gpio_button")) {
+    const JsonObject& gpio_button_json = json["gpio_button"];
+    if (!gpio_button_json.containsKey("id")) {
+      Serial.println("ERROR: Invalid JSON");
+      return false;
+    }
+    const int id = gpio_button_json["id"].as<int>();
+    GpioButton gpio_button(id);
+    out = KButton(gpio_button);
     return true;
   }
   Serial.println("ERROR: Invalid JSON");

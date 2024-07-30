@@ -31,9 +31,17 @@ struct M5Button {
   explicit M5Button(const int new_id) : id(new_id) {}
 };
 
+struct GpioButton {
+  uint8_t id;  // 1,2,3,4,5
+
+  explicit GpioButton() = default;
+  explicit GpioButton(const int new_id) : id(new_id) {}
+};
+
 enum class ButtonType : uint8_t {
   kAppleIBeacon,
   kM5Button,
+  kGpioButton,
 };
 
 struct KButton {
@@ -41,6 +49,7 @@ struct KButton {
   union {
     AppleIBeacon apple_i_beacon;
     M5Button m5_button;
+    GpioButton gpio_button;
   } data;
 
   explicit KButton() = default;
@@ -50,6 +59,10 @@ struct KButton {
   }
   explicit KButton(const M5Button& m5_button) : type(ButtonType::kM5Button) {
     data.m5_button.id = m5_button.id;
+  }
+  explicit KButton(const GpioButton& gpio_button)
+      : type(ButtonType::kGpioButton) {
+    data.gpio_button.id = gpio_button.id;
   }
 };
 
@@ -87,6 +100,10 @@ inline bool operator<(const M5Button& lhs, const M5Button& rhs) {
   return lhs.id < rhs.id;
 }
 
+inline bool operator<(const GpioButton& lhs, const GpioButton& rhs) {
+  return lhs.id < rhs.id;
+}
+
 inline bool operator<(const KButton& lhs, const KButton& rhs) {
   if (lhs.type == ButtonType::kAppleIBeacon &&
       rhs.type == ButtonType::kAppleIBeacon) {
@@ -94,6 +111,10 @@ inline bool operator<(const KButton& lhs, const KButton& rhs) {
   }
   if (lhs.type == ButtonType::kM5Button && rhs.type == ButtonType::kM5Button) {
     return lhs.data.m5_button < rhs.data.m5_button;
+  }
+  if (lhs.type == ButtonType::kGpioButton &&
+      rhs.type == ButtonType::kGpioButton) {
+    return lhs.data.gpio_button < rhs.data.gpio_button;
   }
   return lhs.type < rhs.type;
 }
@@ -140,9 +161,13 @@ enum class CommandType : uint16_t {
   LOCK = 15,
   MOVE_FORWARD = 16,
   ROTATE_IN_PLACE = 17,
+
   PROCEED = 1000,
   CANCEL_COMMAND = 1001,
   SHORTCUT = 1002,
+
+  HTTP_GET = 2000,
+  HTTP_POST = 2001,
 };
 
 struct Command {
@@ -177,6 +202,13 @@ struct Command {
     double y;
     double yaw;
   } move_to_pose;
+  struct {
+    String url;
+  } http_get;
+  struct {
+    String url;
+    String body;
+  } http_post;
 
   bool cancel_all;
   String tts_on_success;

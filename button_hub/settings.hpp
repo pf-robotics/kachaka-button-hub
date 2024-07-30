@@ -19,7 +19,9 @@ class Settings {
   int GetBeepVolume() const;
   int GetScreenBrightness() const;
   bool GetAutoOtaIsEnabled() const;
+  bool GetOneShotAutoOtaIsEnabled() const;
   bool GetAutoRefetchOnUiLoad() const;
+  bool GetGpioButtonIsEnabled() const;
 
   const char* GetOtaEndpoint() const;
   const char* GetOtaLabel() const;
@@ -31,7 +33,9 @@ class Settings {
   void SetBeepVolume(int volume);            // 0-11
   void SetScreenBrightness(int brightness);  // 0-255
   void SetAutoOtaIsEnabled(bool enable);
+  void SetOneShotAutoOtaIsEnabled(bool enable);
   void SetAutoRefetchOnUiLoad(bool enable);
+  void SetGpioButtonIsEnabled(bool enable);
 
   // Non-settings
   int GetNextButtonId();
@@ -53,7 +57,9 @@ class Settings {
   int beep_volume_;
   int screen_brightness_;
   bool auto_ota_is_enabled_;
+  bool one_shot_auto_ota_is_enabled_;
   bool auto_refetch_on_ui_load_;
+  bool gpio_button_is_enabled_;
 };
 
 extern Settings g_settings;

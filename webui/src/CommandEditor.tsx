@@ -82,6 +82,8 @@ export function CommandEditor({
     speak,
     cancelCommand,
     proceed,
+    httpGet,
+    httpPost,
     cancelAllInput,
     ttsOnSuccessInput,
     deferrableInput,
@@ -173,6 +175,20 @@ export function CommandEditor({
             {proceed}
           </Item>
         )}
+        <Item
+          commandType={CommandType.HTTP_GET}
+          command={newCommand}
+          onSelect={() => setSelectedCommandType(CommandType.HTTP_GET)}
+        >
+          {httpGet}
+        </Item>
+        <Item
+          commandType={CommandType.HTTP_POST}
+          command={newCommand}
+          onSelect={() => setSelectedCommandType(CommandType.HTTP_POST)}
+        >
+          {httpPost}
+        </Item>
         <h3 className={disableOptions ? "disabled" : undefined}>オプション</h3>
         <div className={disableOptions ? "disabled" : undefined}>
           <label>{cancelAllInput} 実行中のコマンドをキャンセルする</label>

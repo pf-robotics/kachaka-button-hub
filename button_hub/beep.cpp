@@ -1,6 +1,6 @@
 #include "beep.hpp"
 
-#include "common.hpp"
+#include <M5Unified.h>
 
 namespace beep {
 

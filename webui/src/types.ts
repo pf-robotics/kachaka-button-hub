@@ -6,6 +6,7 @@ export interface Shelf {
 export interface Location {
   id: string;
   name: string;
+  type: string;
 }
 
 export interface Shortcut {
@@ -29,13 +30,13 @@ export interface RobotInfo {
 
 export interface Settings {
   wifi_ssid: string;
-  wifi_pass: string;
   robot_host: string;
   ntp_server: string;
   beep_volume: number;
   screen_brightness: number;
   auto_ota_is_enabled: boolean;
   auto_refetch_on_ui_load: boolean;
+  gpio_button_is_enabled: boolean;
 }
 
 export interface AppleIBeacon {
@@ -46,6 +47,10 @@ export interface AppleIBeacon {
 }
 
 export interface M5Button {
+  id: number;
+}
+
+export interface GpioButton {
   id: number;
 }
 
@@ -60,6 +65,7 @@ export interface TimestampBySeconds {
 export type ButtonBase = (
   | { apple_i_beacon: AppleIBeacon }
   | { m5_button: M5Button }
+  | { gpio_button: GpioButton }
 ) & {
   name?: string;
   estimated_distance?: number;
@@ -107,6 +113,9 @@ export function GetButtonId(button: Button | ButtonJson) {
     }
     return `apple_i_beacon:${button.apple_i_beacon.address}_${button.apple_i_beacon.uuid}_${button.apple_i_beacon.major}_${button.apple_i_beacon.minor}`;
   }
+  if ("gpio_button" in button) {
+    return `gpio_button:${button.gpio_button.id}`;
+  }
   throw new Error("Unknown button type");
 }
 
@@ -143,6 +152,8 @@ export enum CommandType {
   PROCEED = 1000,
   CANCEL_COMMAND = 1001,
   SHORTCUT = 1002,
+  HTTP_GET = 2000,
+  HTTP_POST = 2001,
 }
 
 export interface CommandBase {
@@ -186,7 +197,7 @@ export type ShortcutCommand = {
   type: CommandType.SHORTCUT;
   shortcut: {
     shortcut_id: string;
-  }
+  };
 } & CommandBase;
 
 export type SpeakCommand = {
@@ -204,6 +215,21 @@ export type CancelCommandCommand = {
   type: CommandType.CANCEL_COMMAND;
 } & CommandBase;
 
+export type HttpGetCommand = {
+  type: CommandType.HTTP_GET;
+  http_get: {
+    url: string;
+  };
+} & CommandBase;
+
+export type HttpPostCommand = {
+  type: CommandType.HTTP_POST;
+  http_post: {
+    url: string;
+    body: string;
+  };
+} & CommandBase;
+
 export type Command =
   | MoveShelfCommand
   | ReturnShelfCommand
@@ -213,4 +239,6 @@ export type Command =
   | ShortcutCommand
   | SpeakCommand
   | ProceedCommand
-  | CancelCommandCommand;
+  | CancelCommandCommand
+  | HttpGetCommand
+  | HttpPostCommand;

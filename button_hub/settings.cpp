@@ -1,6 +1,6 @@
 #include "settings.hpp"
 
-#include "common.hpp"
+#include <M5Unified.h>
 
 static constexpr char kDefaultWiFiSsid[] = "";
 static constexpr char kDefaultWiFiPassword[] = "";
@@ -10,6 +10,7 @@ static constexpr int kDefaultBeepVolume = 5;
 static constexpr int kDefaultScreenBrightness = 64;
 static constexpr bool kDefaultAutoOtaIsEnabled = false;
 static constexpr bool kDefaultAutoRefetchOnUiLoad = false;
+static constexpr bool kDefaultGpioButtonIsEnabled = false;
 
 Settings::Settings() : prefs_(nullptr) {}
 
@@ -23,19 +24,24 @@ void Settings::Begin(Preferences* prefs) {
   screen_brightness_ =
       prefs_->getInt("scrn_brightness", kDefaultScreenBrightness);
   auto_ota_is_enabled_ = prefs_->getBool("auto_ota", kDefaultAutoOtaIsEnabled);
+  one_shot_auto_ota_is_enabled_ =
+      prefs_->getBool("1shot_auto_ota", kDefaultAutoOtaIsEnabled);
   auto_refetch_on_ui_load_ =
       prefs_->getBool("auto_refetch", kDefaultAutoRefetchOnUiLoad);
+  gpio_button_is_enabled_ =
+      prefs_->getBool("gpio_button", kDefaultGpioButtonIsEnabled);
 
   Serial.printf(
       "Settings: ssid=\"%s\", pass=XXXX, host=\"%s\", ntp=\"%s\", beep=%d, "
-      "brightness=%d, auto_ota=%d, auto_refetch\n",
+      "brightness=%d, auto_ota=%d, auto_refetch=%d, gpio_button=%d\n",
       wifi_ssid_.c_str(), robot_host_.c_str(), ntp_server_.c_str(),
       beep_volume_, screen_brightness_, auto_ota_is_enabled_,
-      auto_refetch_on_ui_load_);
+      auto_refetch_on_ui_load_, gpio_button_is_enabled_);
   Serial.printf(
       "OTA settings: ota_endpoint=\"%s\", ota_label=\"%s\", "
-      "reboot_ota_url=\"%s\"\n",
-      GetOtaEndpoint(), GetOtaLabel(), GetOtaUrlAfterBoot().c_str());
+      "reboot_ota_url=\"%s\", auto_ota=%d, one_shot_auto_ota=%d\n",
+      GetOtaEndpoint(), GetOtaLabel(), GetOtaUrlAfterBoot().c_str(),
+      GetAutoOtaIsEnabled(), GetOneShotAutoOtaIsEnabled());
   Serial.printf("Values: next_btn_id=%d, next_log_id=%d, ota_fail=%d\n",
                 prefs_->getInt("next_button_id", -1),
                 prefs_->getInt("next_log_id", -1), GetOtaFailCount());
@@ -81,9 +87,19 @@ bool Settings::GetAutoOtaIsEnabled() const {
   return auto_ota_is_enabled_;
 }
 
+bool Settings::GetOneShotAutoOtaIsEnabled() const {
+  Check();
+  return one_shot_auto_ota_is_enabled_;
+}
+
 bool Settings::GetAutoRefetchOnUiLoad() const {
   Check();
   return auto_refetch_on_ui_load_;
+}
+
+bool Settings::GetGpioButtonIsEnabled() const {
+  Check();
+  return gpio_button_is_enabled_;
 }
 
 const char* Settings::GetOtaEndpoint() const {
@@ -144,10 +160,22 @@ void Settings::SetAutoOtaIsEnabled(const bool enable) {
   prefs_->putBool("auto_ota", enable);
 }
 
+void Settings::SetOneShotAutoOtaIsEnabled(const bool enable) {
+  Check();
+  one_shot_auto_ota_is_enabled_ = enable;
+  prefs_->putBool("1shot_auto_ota", enable);
+}
+
 void Settings::SetAutoRefetchOnUiLoad(const bool enable) {
   Check();
   auto_refetch_on_ui_load_ = enable;
   prefs_->putBool("auto_refetch", enable);
+}
+
+void Settings::SetGpioButtonIsEnabled(const bool enable) {
+  Check();
+  gpio_button_is_enabled_ = enable;
+  prefs_->putBool("gpio_button", enable);
 }
 
 int Settings::GetNextButtonId() {

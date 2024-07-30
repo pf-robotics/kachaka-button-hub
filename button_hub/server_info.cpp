@@ -4,6 +4,7 @@
 #include <HTTPClient.h>
 
 #include "beep.hpp"
+#include "gpio_button.hpp"
 #include "ota.hpp"
 #include "server.hpp"
 #include "settings.hpp"
@@ -33,7 +34,7 @@ void HandleSetRobotHost(AsyncWebServerRequest* request, const String& body) {
   }
   const String& robot_host = doc["robot_host"].as<String>();
   g_settings.SetRobotHost(robot_host.c_str());
-  server::SendToWs(to_json::ConvertSettings(g_settings));
+  server::EnqueueWsMessage(to_json::ConvertSettings(g_settings));
   request->send(203);
 
   // reboot in 1 second
@@ -68,7 +69,7 @@ void HandleSetWiFi(AsyncWebServerRequest* request, const String& body) {
   const String& pass = doc["pass"].as<String>();
   g_settings.SetWiFiPass(pass.c_str());
 
-  server::SendToWs(to_json::ConvertSettings(g_settings));
+  server::EnqueueWsMessage(to_json::ConvertSettings(g_settings));
 
   request->send(203);
 
@@ -104,7 +105,7 @@ void HandleSetBeepVolume(AsyncWebServerRequest* request, const String& body) {
   if (0 <= beep_volume && beep_volume <= 11) {
     g_settings.SetBeepVolume(beep_volume);
     beep::SetVolume(beep_volume);
-    server::SendToWs(to_json::ConvertSettings(g_settings));
+    server::EnqueueWsMessage(to_json::ConvertSettings(g_settings));
     request->send(203);
   } else {
     request->send(400, "text/plain", "Invalid range of beep_volume");
@@ -137,7 +138,7 @@ void HandleSetScreenBrightness(AsyncWebServerRequest* request,
   if (0 <= v && v <= 255) {
     g_settings.SetScreenBrightness(v);
     M5.Lcd.setBrightness(v);
-    server::SendToWs(to_json::ConvertSettings(g_settings));
+    server::EnqueueWsMessage(to_json::ConvertSettings(g_settings));
     request->send(203);
   } else {
     request->send(400, "text/plain", "Invalid range of screen_brightness");
@@ -145,7 +146,7 @@ void HandleSetScreenBrightness(AsyncWebServerRequest* request,
 }
 
 void HandleGetDesiredHubVersion(AsyncWebServerRequest* request) {
-  String version = ota::GetDesiredHubVersion();
+  String version = ota::GetDesiredHubVersion(g_settings.GetOtaEndpoint());
   if (version.isEmpty()) {
     request->send(500, "text/plain", "Failed to get desired hub version");
     return;
@@ -179,7 +180,8 @@ void HandleGetOtaImageUrlByVersion(AsyncWebServerRequest* request,
     version = doc["version"].as<String>();
   }
   {
-    String url = ota::GetOtaImageUrlByVersion(version);
+    String url =
+        ota::GetOtaImageUrlByVersion(g_settings.GetOtaEndpoint(), version);
     if (url.isEmpty()) {
       request->send(500, "text/plain", "Failed to get OTA image URL");
       return;
@@ -216,7 +218,34 @@ void HandleSetAutoOtaIsEnabled(AsyncWebServerRequest* request,
   }
   const bool v = doc["auto_ota_is_enabled"].as<bool>();
   g_settings.SetAutoOtaIsEnabled(v);
-  server::SendToWs(to_json::ConvertSettings(g_settings));
+  server::EnqueueWsMessage(to_json::ConvertSettings(g_settings));
+  request->send(203);
+}
+
+void HandleGetOneShotAutoOtaIsEnabled(AsyncWebServerRequest* request) {
+  JsonDocument doc;
+  doc["one_shot_auto_ota_is_enabled"] = g_settings.GetOneShotAutoOtaIsEnabled();
+  String out;
+  serializeJson(doc, out);
+  request->send(200, "text/json; charset=utf-8", out);
+}
+
+void HandleSetOneShotAutoOtaIsEnabled(AsyncWebServerRequest* request,
+                                      const String& body) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, body);
+  if (error) {
+    Serial.println("ERROR: Failed to parse JSON");
+    request->send(400, "text/plain", "Bad Request");
+    return;
+  }
+  if (!doc.containsKey("one_shot_auto_ota_is_enabled")) {
+    Serial.println("ERROR: Invalid JSON");
+    request->send(400, "text/plain", "Bad Request");
+    return;
+  }
+  const bool v = doc["one_shot_auto_ota_is_enabled"].as<bool>();
+  g_settings.SetOneShotAutoOtaIsEnabled(v);
   request->send(203);
 }
 
@@ -244,12 +273,37 @@ void HandleSetAutoRefetchOnUiLoad(AsyncWebServerRequest* request,
   }
   const bool v = doc["auto_refetch_on_ui_load"].as<bool>();
   g_settings.SetAutoRefetchOnUiLoad(v);
-  server::SendToWs(to_json::ConvertSettings(g_settings));
+  server::EnqueueWsMessage(to_json::ConvertSettings(g_settings));
   request->send(203);
 }
 
-void HandleStartAutoOta(AsyncWebServerRequest* request) {
-  ota::StartOtaCheck();
+void HandleGetGpioButtonIsEnabled(AsyncWebServerRequest* request) {
+  JsonDocument doc;
+  doc["gpio_button_is_enabled"] = g_settings.GetGpioButtonIsEnabled();
+  String out;
+  serializeJson(doc, out);
+  request->send(200, "text/json; charset=utf-8", out);
+}
+
+void HandleSetGpioButtonIsEnabled(AsyncWebServerRequest* request,
+                                  const String& body,
+                                  CommandTable& command_table) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, body);
+  if (error) {
+    Serial.println("ERROR: Failed to parse JSON");
+    request->send(400, "text/plain", "Bad Request");
+    return;
+  }
+  if (!doc.containsKey("gpio_button_is_enabled")) {
+    Serial.println("ERROR: Invalid JSON");
+    request->send(400, "text/plain", "Bad Request");
+    return;
+  }
+  const bool v = doc["gpio_button_is_enabled"].as<bool>();
+  g_settings.SetGpioButtonIsEnabled(v);
+  server::EnqueueWsMessage(to_json::ConvertSettings(g_settings));
+  request->send(203);
 }
 
 void HandleOtaByImageUrl(AsyncWebServerRequest* request, const String& body) {

@@ -4,7 +4,7 @@ export function Rebooting({ apply }: { apply?: boolean }) {
   useEffect(() => {
     setTimeout(() => {
       window.location.hash = "";
-    }, 5000);
+    }, 7000);
   }, []);
   return (
     <div

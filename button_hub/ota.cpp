@@ -2,18 +2,16 @@
 
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <M5Unified.h>
 #include <Update.h>
-#include <esp_task_wdt.h>
 #include <tuple>
 
-#include "common.hpp"
 #include "logging.hpp"
 #include "settings.hpp"
 #include "version.hpp"
 
 namespace ota {
 
-static String g_ota_endpoint;
 static std::function<void()> g_on_start = []() {
 };
 static std::function<void(double)> g_on_progress = [](double) {
@@ -26,14 +24,14 @@ static std::function<void(Error)> g_on_error = [](Error) {
 static String g_url;
 static int64_t g_last_update = 0;
 static constexpr int64_t kMaxFetchTrial = 4;
+static constexpr int64_t kFetchRetryIntervalMsec = 5000;
 static constexpr int64_t kWatchDogWarningMsec = 60 * 1000;
 static constexpr int64_t kWatchDogRebootMsec = 60 * 1000 + kWatchDogWarningMsec;
 
-void Begin(String ota_endpoint, const std::function<void()> on_start,
+void Begin(const std::function<void()> on_start,
            std::function<void(double /* percent */)> on_progress,
            std::function<void(bool /* success */)> on_end,
            std::function<void(Error)> on_error) {
-  g_ota_endpoint = std::move(ota_endpoint);
   g_on_start = std::move(on_start);
   g_on_progress = std::move(on_progress);
   g_on_end = std::move(on_end);
@@ -220,10 +218,8 @@ bool CheckOtaIsRequired(const String& current_version,
                         const String& new_version) {
   const auto [success1, major1, minor1, patch1] = ParseVersion(current_version);
   if (!success1) {
-    // Unformed version means "development version". On manual update, we
-    // should allow to update to official version.
-    // On automatic update, we never come here due to the previous check.
-    return true;
+    // Unformed version means "development version".
+    return false;
   }
   const auto [success2, major2, minor2, patch2] = ParseVersion(new_version);
   if (!success2) {
@@ -238,28 +234,28 @@ bool CheckOtaIsRequired(const String& current_version,
   return patch1 < patch2;
 }
 
-String GetDesiredHubVersion() {
+String GetDesiredHubVersion(const String& ota_endpoint) {
+  if (ota_endpoint.isEmpty()) {
+    return "";
+  }
+
   // Cache the result to avoid unnecessary network access
   static String s_version;
   if (!s_version.isEmpty()) {
     return s_version;
   }
 
-  String url =
-      g_ota_endpoint + "/desired-version?button_hub_version=" + kVersion;
+  String url = ota_endpoint + "/desired-version?button_hub_version=" + kVersion;
   Serial.printf("URL: \"%s\"\n", url.c_str());
-  esp_task_wdt_add(nullptr);
   for (int i = 0; i < kMaxFetchTrial; i++) {
-    logging::Log("OTA: Fetching OTA info, trial=%d", i);
-    esp_task_wdt_reset();
+    logging::Log("OTA: Fetching OTA info, trial=%d/%d", i + 1, kMaxFetchTrial);
     HTTPClient http;
     http.begin(url);
     const int http_code = http.GET();
     if (http_code < 200 || 299 < http_code) {
       logging::Log("OTA: Obtaining OTA info failed, code=%d, error: %s",
                    http_code, HTTPClient::errorToString(http_code).c_str());
-      esp_task_wdt_reset();
-      delay(1000);
+      delay(kFetchRetryIntervalMsec);
       continue;
     }
     String body = http.getString();
@@ -267,24 +263,23 @@ String GetDesiredHubVersion() {
     JsonDocument doc;
     if (deserializeJson(doc, body)) {
       logging::Log("OTA: Failed to parse OTA info");
-      delay(1000);
+      delay(kFetchRetryIntervalMsec);
       continue;
     }
     s_version = doc["desired_button_hub_version"].as<String>();
 
-    esp_task_wdt_delete(nullptr);
     return s_version;
   }
-  esp_task_wdt_delete(nullptr);
   return "";
 }
 
-String GetOtaImageUrlByVersion(const String& version) {
+String GetOtaImageUrlByVersion(const String& ota_endpoint,
+                               const String& version) {
   for (int i = 0; i < kMaxFetchTrial; i++) {
     String data = "{\"button_hub_version\": \"" + version + "\"}";
 
     HTTPClient http;
-    http.begin(g_ota_endpoint + "/software-files-url");
+    http.begin(ota_endpoint + "/software-files-url");
     const int http_code = http.POST(std::move(data));
     if (http_code < 200 || 299 < http_code) {
       logging::Log("OTA: Obtaining OTA URL failed, code=%d, error: %s",
@@ -313,61 +308,25 @@ void RebootForOtaAfterBoot(const String& url) {
   ESP.restart();
 }
 
-static void RunOtaCheckAndRebootIfRequired(void*) {
-  logging::Log("OTA: Starting automatic OTA process");
-  const String version = GetDesiredHubVersion();
+String GetOtaImageUrlFromServerIfAvailable(const String& ota_endpoint) {
+  logging::Log("OTA: Starting automatic OTA check...");
+  const String version = GetDesiredHubVersion(ota_endpoint);
   if (version.isEmpty()) {
     logging::Log("OTA: Failed to obtain desired version");
-    vTaskDelete(nullptr);
-    return;
+    return "";
   }
   if (!CheckOtaIsRequired(kVersion, version)) {
     logging::Log("OTA: OTA is not required: current=\"%s\", new=\"%s\"",
                  kVersion, version.c_str());
-    vTaskDelete(nullptr);
-    return;
+    return "";
   }
   logging::Log("OTA: Desired version: %s", version.c_str());
-  String url = GetOtaImageUrlByVersion(version);
+  String url = GetOtaImageUrlByVersion(ota_endpoint, version);
   if (url.isEmpty()) {
     logging::Log("OTA: Failed to obtain URL");
-    vTaskDelete(nullptr);
-    return;
+    return "";
   }
-
-  logging::Log("OTA: Rebooting...");
-  RebootForOtaAfterBoot(url);
-
-  vTaskDelete(nullptr);
-}
-
-void StartOtaCheck() {
-  xTaskCreate(RunOtaCheckAndRebootIfRequired, "OtaCheck", 8 * 1024, nullptr, 1,
-              nullptr);
-}
-
-void StartOtaCheckIf(const std::function<bool()>& start_condition) {
-  static bool triggered = false;
-
-  if (triggered) {
-    return;
-  }
-  if (g_ota_endpoint.isEmpty()) {
-    logging::Log("ORTA: Disabling automatic OTA check: no OTA endpoint");
-    triggered = true;
-    return;
-  }
-  const auto [success, major, minor, patch] = ParseVersion(kVersion);
-  if (!success) {
-    logging::Log("OTA: Disabling automatic OTA check: invalid version");
-    triggered = true;
-    return;
-  }
-
-  if (start_condition()) {
-    triggered = true;
-    StartOtaCheck();
-  }
+  return url;
 }
 
 }  // namespace ota

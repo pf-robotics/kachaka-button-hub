@@ -7,8 +7,8 @@ class InitialSetup {
  public:
   enum class State {
     kInit,
-    kWaitForWiFiClient,
-    kWaitForSettings,
+    kWaitingForConnection,
+    kWaitingForSettings,
   };
 
   explicit InitialSetup();
@@ -18,5 +18,5 @@ class InitialSetup {
   static void DrawScreen(State state);
 
   State prev_state_;
-  State next_state_;
+  State curr_state_;
 };

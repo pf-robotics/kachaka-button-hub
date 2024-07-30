@@ -18,12 +18,12 @@ static kb::Mutex g_mutex;
 static std::deque<String> g_queue;  // guard by g_mutex
 
 static String GenDateTime() {
-  time_t now = time(nullptr);
-  struct tm* ptm = gmtime(&now);
+  struct tm timeinfo;
+  getLocalTime(&timeinfo, 10);
   char out[20];
-  sprintf(out, "%04d-%02d-%02d %02d:%02d:%02d", ptm->tm_year + 1900,
-          ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min,
-          ptm->tm_sec);
+  sprintf(out, "%04d-%02d-%02d %02d:%02d:%02d", timeinfo.tm_year + 1900,
+          timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour,
+          timeinfo.tm_min, timeinfo.tm_sec);
   return out;
 }
 

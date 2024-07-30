@@ -8,9 +8,14 @@ struct Shelf {
   String name;
 };
 
+enum class LocationType : uint8_t { kOther = 0, kCharger = 1, kShelfHome = 2 };
+
+String GetLocationTypeString(LocationType type);
+
 struct Location {
   String id;
   String name;
+  LocationType type;
 };
 
 struct Shortcut {
@@ -27,4 +32,9 @@ struct RobotInfoHolder {
   std::vector<Location> locations;
   bool has_shortcuts = false;
   std::vector<Shortcut> shortcuts;
+};
+
+struct LockOnEnd {
+  bool enabled = false;
+  double duration_sec;
 };
