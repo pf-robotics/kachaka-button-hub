@@ -1,10 +1,14 @@
 #pragma once
 
+#include <vector>
+
 #include "ota.hpp"
 
 namespace screen {
 
 void Begin(int brightness);
+
+void DrawWhiteTextWithBlackScreen(const std::vector<const char*>& lines);
 
 void DrawWiFiConnectingPage(bool init);
 void DrawMainPage(const char* ssid, const char* hub_host,

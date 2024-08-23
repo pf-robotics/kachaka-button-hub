@@ -1,5 +1,6 @@
 #include "command_table.hpp"
 
+#include <ArduinoJson.h>
 #include <FS.h>
 #include <SPIFFS.h>
 #include <algorithm>
@@ -7,7 +8,8 @@
 #include <cstring>
 #include <vector>
 
-#include "command_table_io.hpp"
+#include "from_json.hpp"
+#include "logging.hpp"
 #include "mutex.hpp"
 #include "settings.hpp"
 #include "to_json.hpp"
@@ -20,7 +22,7 @@ static bool WriteInt32(File& file, const int32_t value) {
   const size_t retv =
       file.write(reinterpret_cast<const uint8_t*>(&value), sizeof(value));
   if (retv != sizeof(value)) {
-    Serial.printf("Failed to write int32_t: %d\n", retv);
+    logging::Log("Failed to write int32_t: %d", retv);
     return false;
   }
   return true;
@@ -31,7 +33,7 @@ static int32_t ReadInt32(File& file) {
   const size_t retv =
       file.read(reinterpret_cast<uint8_t*>(&value), sizeof(value));
   if (retv != sizeof(value)) {
-    Serial.printf("Failed to read int32_t: %d\n", retv);
+    logging::Log("Failed to read int32_t: %d", retv);
   }
   return value;
 }
@@ -44,7 +46,7 @@ static bool WriteString(File& file, const String& str) {
   const size_t retv =
       file.write(reinterpret_cast<const uint8_t*>(str.c_str()), size);
   if (retv != size) {
-    Serial.printf("Failed to write string: %d != %u\n", size, retv);
+    logging::Log("Failed to write string: %d != %u", size, retv);
     return false;
   }
   return true;
@@ -55,7 +57,7 @@ static String ReadString(File& file) {
   std::vector<char> buf(size + 1);
   const size_t retv = file.read(reinterpret_cast<uint8_t*>(buf.data()), size);
   if (retv != size) {
-    Serial.printf("Failed to read int32_t: %d\n", retv);
+    logging::Log("Failed to read int32_t: %d", retv);
   }
   buf.at(size) = '\0';
   return String(buf.data());
@@ -184,32 +186,19 @@ const std::deque<ObservedButton>& CommandTable::GetObservedButtons() const {
 }
 
 void CommandTable::SetCommand(const KButton& button, const Command& command) {
-  if (button_names_.count(button) == 0) {
-    const String name = "ボタン" + String(g_settings.GetNextButtonId());
-    SetButtonName(button, name);
-  }
-  {
-    const kb::LockGuard lock(mutex_);
-    registered_commands_[button] = command;
-  }
+  const kb::LockGuard lock(mutex_);
+  SetCommandLocked(button, command);
 }
 
 void CommandTable::DeleteCommand(const KButton& button) {
-  {
-    const kb::LockGuard lock(mutex_);
-    registered_commands_.erase(button);
-  }
-  if (button.type == ButtonType::kAppleIBeacon) {
-    DeleteButtonName(button);
-  }
-}
-
-void CommandTable::DeleteAllCommands() {
   const kb::LockGuard lock(mutex_);
-  registered_commands_.clear();
+  DeleteCommandLocked(button);
+  if (button.type == ButtonType::kAppleIBeacon) {
+    button_names_.erase(button);
+  }
 }
 
-std::map<KButton, Command> CommandTable::GetCommands() const {
+std::vector<ButtonCommandPair> CommandTable::GetCommands() const {
   const kb::LockGuard lock(mutex_);
   return registered_commands_;
 }
@@ -217,17 +206,18 @@ std::map<KButton, Command> CommandTable::GetCommands() const {
 bool CommandTable::GetCommandByButton(const KButton& button,
                                       Command* command) const {
   const kb::LockGuard lock(mutex_);
-  const auto iter = registered_commands_.find(button);
-  if (iter == registered_commands_.end()) {
-    return false;
+  for (const auto& pair : registered_commands_) {
+    if (pair.button == button) {
+      *command = pair.command;
+      return true;
+    }
   }
-  *command = iter->second;
-  return true;
+  return false;
 }
 
 void CommandTable::SetButtonName(const KButton& button, const String& name) {
   const kb::LockGuard lock(mutex_);
-  button_names_[button] = name;
+  SetButtonNameLocked(button, name);
 }
 
 void CommandTable::DeleteButtonName(const KButton& button) {
@@ -235,69 +225,154 @@ void CommandTable::DeleteButtonName(const KButton& button) {
   button_names_.erase(button);
 }
 
-void CommandTable::DeleteAllButtonNames() {
-  const kb::LockGuard lock(mutex_);
-  button_names_.clear();
-}
-
 std::map<KButton, String> CommandTable::GetButtonNames() const {
   const kb::LockGuard lock(mutex_);
   return button_names_;
 }
 
+bool CommandTable::LoadCommand(const String& json) {
+  const kb::LockGuard lock(mutex_);
+
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, json);
+  if (error) {
+    Serial.println("ERROR: Failed to parse JSON");
+    return false;
+  }
+  JsonObject root = doc.as<JsonObject>();
+  KButton button;
+  Command command;
+  if (!from_json::ConvertCommandJson(root, button, command)) {
+    return false;
+  }
+  SetCommandLocked(button, command);
+  return true;
+}
+
+bool CommandTable::LoadCommandArray(const String& json) {
+  const kb::LockGuard lock(mutex_);
+  return LoadCommandArrayLocked(json);
+}
+
+bool CommandTable::LoadCommandArrayLocked(const String& json) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, json);
+  if (error) {
+    Serial.println("ERROR: Failed to parse JSON");
+    return false;
+  }
+  JsonObject root = doc.as<JsonObject>();
+  if (!root.containsKey("commands")) {
+    Serial.println("ERROR: Failed to parse JSON");
+    return false;
+  }
+
+  registered_commands_.clear();
+
+  bool ok = true;
+  JsonArray arr = root["commands"].as<JsonArray>();
+  for (JsonObject obj : arr) {
+    KButton button;
+    Command command;
+    if (!from_json::ConvertCommandJson(obj, button, command)) {
+      ok = false;
+      continue;
+    }
+    SetCommandLocked(button, command);
+  }
+  return ok;
+}
+
+bool CommandTable::LoadButtonNameArrayLocked(const String& json) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, json);
+  if (error) {
+    Serial.println("ERROR: Failed to parse JSON");
+    return false;
+  }
+  JsonObject root = doc.as<JsonObject>();
+  if (!root.containsKey("buttons")) {
+    Serial.println("ERROR: Failed to parse JSON");
+    return false;
+  }
+
+  button_names_.clear();
+
+  for (JsonObject item : root["buttons"].as<JsonArray>()) {
+    if (!item.containsKey("name")) {
+      continue;
+    }
+    KButton button;
+    if (!from_json::ConvertButtonJson(item, button)) {
+      continue;
+    }
+    SetButtonNameLocked(button, item["name"].as<String>());
+  }
+  return true;
+}
+
 void CommandTable::Save() {
-  Serial.println("Save command table.");
+  const kb::LockGuard lock(mutex_);
+
+  logging::Log("Save command table.");
   {
     File file = SPIFFS.open(kTemporaryCommandTablePath, "w");
     if (!file) {
-      Serial.println("Failed to open the command file");
+      logging::Log("Failed to open the command file");
       return;
     }
     if (!WriteInt32(file, kFileVersion) ||
-        !WriteString(file, to_json::ConvertObservedButtons(GetObservedButtons(),
-                                                           GetButtonNames())) ||
-        !WriteString(file, to_json::ConvertCommands(GetCommands()))) {
-      Serial.println("Failed to write the command file");
+        !WriteString(file, to_json::ConvertObservedButtons(observed_buttons_,
+                                                           button_names_)) ||
+        !WriteString(file, to_json::ConvertCommands(registered_commands_))) {
+      logging::Log("Failed to write the command file");
       return;
     }
     file.flush();
   }
   if (!SPIFFS.remove(kCommandTablePath)) {
-    Serial.println("Failed to remove the old file");
+    logging::Log("Failed to remove the old file");
   }
   if (!SPIFFS.rename(kTemporaryCommandTablePath, kCommandTablePath)) {
-    Serial.println(
+    logging::Log(
         "Failed to swap the command file and the temporary file. The command "
         "file is lost.");
   }
+  logging::Log("Saved the command table: %d buttons, %d commands",
+               button_names_.size(), registered_commands_.size());
 }
 
 void CommandTable::Load() {
-  Serial.println("Load command table.");
+  const kb::LockGuard lock(mutex_);
+
+  logging::Log("Load command table.");
   File file = SPIFFS.open(kCommandTablePath);
   if (!file) {
-    Serial.println("No setting file");
+    logging::Log("No setting file");
     return;
   }
 
   const int32_t version = ReadInt32(file);
-  Serial.printf("File version = %d\n", version);
+  logging::Log("File version = %d", version);
   if (version != kFileVersion) {
-    Serial.printf("Invalid version %d\n", version);
+    logging::Log("Invalid version %d", version);
     return;
   }
 
   const String buttons_json = ReadString(file);
-  if (!command_table_io::LoadButtonNameArray(buttons_json, *this)) {
-    Serial.println("Failed to load observed buttons");
+  if (!LoadButtonNameArrayLocked(buttons_json)) {
+    logging::Log("Failed to load observed buttons");
   }
 
   const String commands_json = ReadString(file);
-  if (!command_table_io::LoadCommandArray(commands_json, *this)) {
-    Serial.println("Failed to load commands");
+  if (!LoadCommandArrayLocked(commands_json)) {
+    logging::Log("Failed to load commands");
   }
 
   file.close();
+
+  logging::Log("Loaded the command table: %d buttons, %d commands",
+               button_names_.size(), registered_commands_.size());
 }
 
 void CommandTable::Reset() {
@@ -306,4 +381,28 @@ void CommandTable::Reset() {
   registered_commands_.clear();
   button_names_.clear();
   SPIFFS.remove(kCommandTablePath);
+}
+
+void CommandTable::SetCommandLocked(const KButton& button,
+                                    const Command& command) {
+  if (button_names_.count(button) == 0) {
+    const String name = "ボタン" + String(g_settings.GetNextButtonId());
+    SetButtonNameLocked(button, name);
+  }
+  DeleteCommandLocked(button);
+  registered_commands_.push_back(ButtonCommandPair{button, command});
+}
+
+void CommandTable::DeleteCommandLocked(const KButton& button) {
+  registered_commands_.erase(
+      std::remove_if(registered_commands_.begin(), registered_commands_.end(),
+                     [&button](const ButtonCommandPair& pair) {
+                       return pair.button == button;
+                     }),
+      registered_commands_.end());
+}
+
+void CommandTable::SetButtonNameLocked(const KButton& button,
+                                       const String& name) {
+  button_names_[button] = name;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 
 import { MdDelete } from "react-icons/md";
 import { MdFileDownload } from "react-icons/md";
@@ -7,6 +7,7 @@ import { FaRegFile } from "react-icons/fa";
 import { Icon } from "./Icon";
 import { Box } from "./Box";
 import { Modal } from "./Modal";
+import { LogDownloadAll } from "./LogDownloadAll";
 
 function LogItem({
   hubHost,
@@ -42,7 +43,9 @@ function LogItem({
           flex: 1,
         }}
       >
-        <Icon children={<FaRegFile />} />
+        <Icon>
+          <FaRegFile />
+        </Icon>
         <span
           style={{
             display: "flex",
@@ -56,17 +59,29 @@ function LogItem({
           </span>
         </span>
       </a>
-      <button className="icon" onClick={handleDownload}>
-        <Icon children={<MdFileDownload />} />
+      <button type="button" className="icon" onClick={handleDownload}>
+        <Icon>
+          <MdFileDownload />
+        </Icon>
       </button>
-      <button className="icon" onClick={() => setOpenConfirm(true)}>
-        <Icon children={<MdDelete />} />
+      <button
+        type="button"
+        className="icon"
+        onClick={() => setOpenConfirm(true)}
+      >
+        <Icon>
+          <MdDelete />
+        </Icon>
       </button>
       <Modal open={openConfirm} onClose={() => setOpenConfirm(false)}>
         <p>本当に削除しますか?</p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 16 }}>
-          <button onClick={onDelete}>削除</button>
-          <button onClick={() => setOpenConfirm(false)}>いいえ</button>
+          <button type="button" onClick={onDelete}>
+            削除
+          </button>
+          <button type="button" onClick={() => setOpenConfirm(false)}>
+            いいえ
+          </button>
         </div>
       </Modal>
     </Box>
@@ -94,9 +109,14 @@ export function LogList({
       .then((data) => setResponse(data));
   }, [hubHost]);
 
+  const files = useMemo(
+    () => (response === undefined ? [] : Object.keys(response.files).sort()),
+    [response],
+  );
+
   const handleDeleteLog = useCallback(
     (path: string) =>
-      onDelete("/" + path).then(() =>
+      onDelete(`/${path}`).then(() =>
         setResponse((prev) => {
           if (prev === undefined) return prev;
           const newLogs = { ...prev, files: { ...prev.files } };
@@ -113,6 +133,9 @@ export function LogList({
         <p>読み込み中...</p>
       ) : (
         <>
+          <div style={{ marginLeft: 16 }}>
+            <LogDownloadAll hubHost={hubHost} files={files} />
+          </div>
           <div style={{ display: "flex", flexFlow: "wrap row" }}>
             {Object.entries(response.files)
               .sort(([a], [b]) => (a < b ? 1 : -1))

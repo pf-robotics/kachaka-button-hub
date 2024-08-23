@@ -1,4 +1,6 @@
-export function StackedWarning({ items }: { items: JSX.Element[] }) {
+export function StackedWarning({
+  items,
+}: { items: Array<{ key: string; elem: JSX.Element }> }) {
   return (
     <div
       style={{
@@ -12,9 +14,9 @@ export function StackedWarning({ items }: { items: JSX.Element[] }) {
         gap: 8,
       }}
     >
-      {items.map((item, index) => (
+      {items.map(({ key, elem }) => (
         <div
-          key={index}
+          key={key}
           style={{
             backgroundColor: "var(--ginger-yellow1)",
             color: "var(--status-danger)",
@@ -23,7 +25,7 @@ export function StackedWarning({ items }: { items: JSX.Element[] }) {
             borderRadius: 8,
           }}
         >
-          {item}
+          {elem}
         </div>
       ))}
     </div>

@@ -4,9 +4,12 @@
 #include <WiFi.h>
 
 #include "beep.hpp"
+#include "bluetooth.hpp"
+#include "bluetooth_peripheral.hpp"
 #include "lgfx/v1/lgfx_fonts.hpp"
 #include "qrcode.hpp"
 #include "server.hpp"
+#include "settings.hpp"
 #include "to_json.hpp"
 #include "wifi.hpp"
 
@@ -14,6 +17,9 @@ InitialSetup::InitialSetup()
     : prev_state_(State::kInit), curr_state_(State::kInit) {}
 
 void InitialSetup::RunLoop() {
+  bool is_any_device_connected = WiFi.softAPgetStationNum() > 0 ||
+                                 bluetooth_peripheral::IsDeviceConnected();
+
   State next_state = curr_state_;
   switch (curr_state_) {
     case State::kInit: {
@@ -22,17 +28,19 @@ void InitialSetup::RunLoop() {
       beep::PlayInitialSetupNext();
     } break;
     case State::kWaitingForConnection:
-      if (WiFi.softAPgetStationNum() > 0) {
+      if (is_any_device_connected) {
         next_state = State::kWaitingForSettings;
         DrawScreen(next_state);
         beep::PlayInitialSetupNext();
-        wifi::StartApScan();
-        server::EnqueueWsMessage(to_json::ConvertWiFiApList(true, {}));
+        if (WiFi.softAPgetStationNum() > 0) {
+          wifi::StartApScan();
+          server::EnqueueWsMessage(to_json::ConvertWiFiApList(true, {}));
+        }
       }
       break;
     case State::kWaitingForSettings:
       // Wait for the result of the Wi-Fi AP scan
-      {
+      if (WiFi.softAPgetStationNum() > 0) {
         const auto& [state, wifi_ap_list] = wifi::GetScannedWiFiApList();
         switch (state) {
           case wifi::ScanState::kScanning:
@@ -49,7 +57,7 @@ void InitialSetup::RunLoop() {
             break;
         }
       }
-      if (WiFi.softAPgetStationNum() == 0) {
+      if (!is_any_device_connected) {
         next_state = State::kWaitingForConnection;
         DrawScreen(next_state);
         beep::PlayInitialSetupPrev();
@@ -97,11 +105,17 @@ void InitialSetup::RunLoop() {
       M5.Lcd.setTextColor(TFT_WHITE);
       M5.Lcd.drawString("に接続してく", 160, 27 * 3);
       M5.Lcd.drawString("ださい。", 160, 27 * 4);
-      M5.Lcd.drawString("QRコードを使", 160, 27 * 5);
-      M5.Lcd.drawString("うと簡単です", 160, 27 * 6);
+
+      // Bluetooth
+      const String bluetooth_name = bluetooth::GetUniqueDeviceName();
+      M5.Lcd.setTextColor(TFT_CYAN);
+      M5.Lcd.drawString(bluetooth_name, 160, 27 * 7);
+
+      // WiFi QR code
       const String code =
           String("WIFI:S:") + kApSsid + ";T:WPA;P:" + kApPass + ";H:false;;";
       qrcode::ShowQrCode(code.c_str(), 0.0 /* left */);
+
       // MAC address
       M5.Lcd.setFont(&fonts::Font2);
       M5.Lcd.setTextDatum(BC_DATUM);

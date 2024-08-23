@@ -3,12 +3,18 @@ import { useMemo } from "react";
 import { ObservedButtonList } from "./ObservedButtonList";
 import { RegisteredCommandList } from "./RegisteredCommandList";
 
-import { Button, Command, RobotInfo, GetButtonId } from "./types";
+import {
+  type Button,
+  type Command,
+  type RobotInfo,
+  GetButtonId,
+} from "./types";
 
 export function MainCardUi({
   buttons,
   commands,
   buttonIdToNameMap,
+  recentPressedButtonId,
   robotInfo,
   onEdit,
   onDelete,
@@ -21,6 +27,7 @@ export function MainCardUi({
   buttons: Button[] | undefined;
   commands: { button: Button; command: Command }[] | undefined;
   buttonIdToNameMap: Map<string, string>;
+  recentPressedButtonId: string[];
   robotInfo: RobotInfo | undefined;
   onEdit: (button: Button, command: Command) => Promise<void>;
   onDelete: (button: Button) => Promise<void>;
@@ -33,18 +40,6 @@ export function MainCardUi({
   const registeredButtonIds = useMemo(
     () => (commands ?? []).map(({ button }) => GetButtonId(button)),
     [commands],
-  );
-
-  const recentPressedButtonId = useMemo(
-    () =>
-      buttons
-        ?.filter(({ timestamp }) =>
-          timestamp === undefined
-            ? false
-            : Date.now() - timestamp.getTime() < 1000,
-        )
-        .map((button) => GetButtonId(button)) ?? [],
-    [buttons],
   );
 
   return (

@@ -14,6 +14,7 @@ static bool g_available = false;
 static bool g_ping_result = false;
 static float g_ping_time = 0;
 static TaskHandle_t g_task_handle = nullptr;
+static int64_t g_last_success = 0;
 
 static constexpr bool kDebug = false;
 static constexpr int kPingIntervalMs = 2000;
@@ -76,11 +77,16 @@ void Update() {
     static int ng_count = 0;
     if (result) {
       ng_count = 0;
+      g_last_success = millis();
     } else {
       ng_count++;
     }
     screen::DrawPingResult(result, time, ng_count);
   }
+}
+
+int64_t GetDurationFromLastSuccess() {
+  return millis() - g_last_success;
 }
 
 }  // namespace ping_to_robot

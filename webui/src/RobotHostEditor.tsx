@@ -40,11 +40,9 @@ export function RobotHostEditor({
       <div style={{ maxWidth: 0, maxHeight: 0, overflow: "hidden" }}>
         <input type="checkbox" />
       </div>
-      <input
-        {...robotHostInput}
-        placeholder="シリアル番号・IPアドレス"
-      />
+      <input {...robotHostInput} placeholder="シリアル番号・IPアドレス" />
       <button
+        type="button"
         onClick={handleSetRobotHost}
         disabled={
           robotHostInput.value === robotHost || robotHostInput.value === ""

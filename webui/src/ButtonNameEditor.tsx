@@ -56,6 +56,7 @@ export function ButtonNameEditor({
       >
         {printName}
         <button
+          type="button"
           className="icon"
           onClick={() => setOpenDialog((prev) => !prev)}
           style={{ marginLeft: 8 }}
@@ -70,13 +71,16 @@ export function ButtonNameEditor({
           <div style={{ display: "flex", justifyContent: "end" }}>
             {button.name && onDeleteButtonName ? (
               <>
-                <button className="icon" onClick={handleDelete}>
-                  <Icon children={<MdDeleteOutline />} />
+                <button type="button" className="icon" onClick={handleDelete}>
+                  <Icon>
+                    <MdDeleteOutline />
+                  </Icon>
                 </button>
                 <span style={{ flex: 1 }} />
               </>
             ) : null}
             <button
+              type="button"
               onClick={handleUpdateName}
               disabled={input.value === "" || input.value === name}
             >

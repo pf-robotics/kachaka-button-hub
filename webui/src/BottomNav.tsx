@@ -23,6 +23,7 @@ export function BottomNav({
       <div
         className={page === "home" ? "selected" : undefined}
         onClick={() => onPageChange("home")}
+        onKeyDown={() => onPageChange("home")}
       >
         {page === "home" ? <MdHome /> : <MdOutlineHome />}
         <span>ホーム</span>
@@ -30,6 +31,7 @@ export function BottomNav({
       <div
         className={page === "sheet" ? "selected" : undefined}
         onClick={() => onPageChange("sheet")}
+        onKeyDown={() => onPageChange("sheet")}
       >
         {page === "sheet" ? <MdTableView /> : <MdOutlineTableView />}
         <span>表形式</span>
@@ -37,6 +39,7 @@ export function BottomNav({
       <div
         className={page === "info" ? "selected" : undefined}
         onClick={() => onPageChange("info")}
+        onKeyDown={() => onPageChange("info")}
       >
         {page === "info" ? <MdInfo /> : <MdOutlineInfo />}
         <span>ログ</span>
@@ -44,6 +47,7 @@ export function BottomNav({
       <div
         className={page === "settings" ? "selected" : undefined}
         onClick={() => onPageChange("settings")}
+        onKeyDown={() => onPageChange("settings")}
       >
         {page === "settings" ? <MdSettings /> : <MdOutlineSettings />}
         <span>設定</span>

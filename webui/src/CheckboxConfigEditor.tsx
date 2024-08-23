@@ -29,19 +29,17 @@ export function CheckboxConfigEditor({
   );
 
   return (
-    <div
-      style={{ display: "flex", gap: 8, alignItems: "center" }}
+    <label
       className={value === undefined ? "disabled" : undefined}
+      style={{ display: "flex", gap: 4 }}
     >
-      <label>
-        <input
-          type="checkbox"
-          checked={value ?? false}
-          onChange={handleChange}
-          disabled={value === undefined}
-        />
-        {label}
-      </label>
-    </div>
+      <input
+        type="checkbox"
+        checked={value ?? false}
+        onChange={handleChange}
+        disabled={value === undefined}
+      />
+      {label}
+    </label>
   );
 }

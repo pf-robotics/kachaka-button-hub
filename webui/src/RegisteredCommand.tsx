@@ -99,13 +99,20 @@ export function RegisteredCommand({
               gap: 12,
             }}
           >
-            <button onClick={() => setOpenEditor((prev) => !prev)}>
-              <Icon color="inherit" margin="right" children={<MdEdit />} />
+            <button
+              type="button"
+              onClick={() => setOpenEditor((prev) => !prev)}
+            >
+              <Icon color="inherit" margin="right">
+                <MdEdit />
+              </Icon>
               編集
             </button>
             <span style={{ flex: 1 }} />
-            <button className="icon" onClick={handleDelete}>
-              <Icon children={<MdDelete />} />
+            <button type="button" className="icon" onClick={handleDelete}>
+              <Icon>
+                <MdDelete />
+              </Icon>
             </button>
           </div>
         </div>

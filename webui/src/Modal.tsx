@@ -42,6 +42,14 @@ export function Modal({
     },
     [onClose],
   );
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDialogElement>) => {
+      if (event.key === "Escape") {
+        onClose?.();
+      }
+    },
+    [onClose],
+  );
 
   return (
     <dialog
@@ -52,15 +60,19 @@ export function Modal({
         flexDirection: "column",
       }}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
     >
       {children}
       {onClose && (
         <button
+          type="button"
           className="icon"
           onClick={onClose}
           style={{ position: "absolute", right: 8, top: 8 }}
         >
-          <Icon children={<MdOutlineClose />} />
+          <Icon>
+            <MdOutlineClose />
+          </Icon>
         </button>
       )}
     </dialog>

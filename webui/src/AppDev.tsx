@@ -33,7 +33,7 @@ export function AppDev() {
           />
         </div>
         <div>
-          <button onClick={handleOtaSubmit} disabled={url === ""}>
+          <button type="button" onClick={handleOtaSubmit} disabled={url === ""}>
             書き込む
           </button>
         </div>

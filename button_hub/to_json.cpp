@@ -301,7 +301,7 @@ String ConvertCommand(const Command& command) {
   return out;
 }
 
-String ConvertCommands(const std::map<KButton, Command>& commands) {
+String ConvertCommands(const std::vector<ButtonCommandPair>& commands) {
   // {
   //   "type": "commands",
   //   "timestamp_now": 10,

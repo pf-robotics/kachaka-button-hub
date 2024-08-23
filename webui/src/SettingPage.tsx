@@ -22,9 +22,9 @@ export function SettingPage({
   robotHost: string | undefined;
 }) {
   const triggerReboot = () => {
-    fetch(`http://${hubHost}/reboot`).then(
-      () => (window.location.hash = "#reboot"),
-    );
+    fetch(`http://${hubHost}/reboot`).then(() => {
+      window.location.hash = "#reboot";
+    });
   };
   const handleManualOta = () => {
     fetch(`http://${hubHost}/config/one_shot_auto_ota_is_enabled`, {
@@ -103,7 +103,7 @@ export function SettingPage({
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 16,
+              gap: 8,
               alignItems: "start",
             }}
           >
@@ -163,9 +163,9 @@ export function SettingPage({
       <h3>データの初期化</h3>
       <ButtonWithConfirmation
         onClick={() =>
-          fetch(`http://${hubHost}/clear_all_data`).then(
-            () => (window.location.hash = "#reboot-apply"),
-          )
+          fetch(`http://${hubHost}/clear_all_data`).then(() => {
+            window.location.hash = "#reboot-apply";
+          })
         }
         confirmText="ボタンHubの設定を全て消去しますか？"
         confirmButtonText="全て消去"

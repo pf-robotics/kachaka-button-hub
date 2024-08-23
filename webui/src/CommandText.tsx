@@ -35,60 +35,40 @@ export function CommandText({
   );
 
   if (command.type === CommandType.MOVE_SHELF) {
-    return (
-      `${lookupShelfName(command.move_shelf.shelf_id)}を${lookupLocationName(
-        command.move_shelf.location_id,
-      )}に移動` +
-      (command.tts_on_success ? `し、「${command.tts_on_success}」と発話` : "")
-    );
+    return `${lookupShelfName(command.move_shelf.shelf_id)}を${lookupLocationName(
+      command.move_shelf.location_id,
+    )}に移動${command.tts_on_success ? `し、「${command.tts_on_success}」と発話` : ""}`;
   }
   if (command.type === CommandType.RETURN_SHELF) {
-    return (
-      `${lookupShelfName(command.return_shelf.shelf_id)}を片付け` +
-      (command.tts_on_success ? `、「${command.tts_on_success}」と発話` : "る")
-    );
+    return `${lookupShelfName(command.return_shelf.shelf_id)}を片付け${command.tts_on_success ? `、「${command.tts_on_success}」と発話` : "る"}`;
   }
   if (command.type === CommandType.UNDOCK_SHELF) {
-    return (
-      `持っている家具をその場に置` +
-      (command.tts_on_success ? `き、「${command.tts_on_success}」と発話` : "く")
-    );
+    return `持っている家具をその場に置${command.tts_on_success ? `き、「${command.tts_on_success}」と発話` : "く"}`;
   }
   if (command.type === CommandType.MOVE_TO_LOCATION) {
-    return (
-      `${lookupLocationName(command.move_to_location.location_id)}に移動` +
-      (command.tts_on_success ? `し、「${command.tts_on_success}」と発話` : "")
-    );
+    return `${lookupLocationName(command.move_to_location.location_id)}に移動${command.tts_on_success ? `し、「${command.tts_on_success}」と発話` : ""}`;
   }
   if (command.type === CommandType.RETURN_HOME) {
-    return (
-      `充電ドックに戻` +
-      (command.tts_on_success
-        ? `り、「${command.tts_on_success}」と発話`
-        : "る")
-    );
+    return `充電ドックに戻${
+      command.tts_on_success ? `り、「${command.tts_on_success}」と発話` : "る"
+    }`;
   }
   if (command.type === CommandType.SHORTCUT) {
-    return (
-      `ショートカット ${lookupShortcutName(command.shortcut.shortcut_id)} を実行`
-    );
+    return `ショートカット ${lookupShortcutName(command.shortcut.shortcut_id)} を実行`;
   }
   if (command.type === CommandType.SPEAK) {
-    return (
-      `「${command.speak.text}」と発話` +
-      (command.tts_on_success ? `し、「${command.tts_on_success}」と発話` : "")
-    );
+    return `「${command.speak.text}」と発話${command.tts_on_success ? `し、「${command.tts_on_success}」と発話` : ""}`;
   }
   if (command.type === CommandType.PROCEED) {
-    return `待機状態を解除`;
+    return "待機状態を解除";
   }
   if (command.type === CommandType.CANCEL_COMMAND) {
-    return `実行中のコマンドをキャンセル`;
+    return "実行中のコマンドをキャンセル";
   }
   if (command.type === CommandType.HTTP_GET) {
-    return `GETリクエストを送信`;
+    return "GETリクエストを送信";
   }
   if (command.type === CommandType.HTTP_POST) {
-    return `POSTリクエストを送信`;
+    return "POSTリクエストを送信";
   }
 }

@@ -16,6 +16,7 @@ import { MdErrorOutline } from "react-icons/md";
 import { MdReplay } from "react-icons/md";
 
 const HUB_HOST = getHubHost();
+const SSID_MANUAL_INPUT = "手動入力 (非公開Wi-Fiの場合)";
 
 function checkConfusableCharacters(s: string, level: "high" | "low"): string[] {
   const CONFUSABLES: {
@@ -66,12 +67,13 @@ function checkConfusableCharacters(s: string, level: "high" | "low"): string[] {
 function checkJapaneseZenkaku(s: string): string[] {
   const out: string[] = [];
   // Check if ASCII code
-  // eslint-disable-next-line no-control-regex
+  // biome-ignore lint:
   if (s.match(/[^\x01-\x7E]/)) {
     out.push(
       `全角文字の「${
         s
-          .match(/[^\x01-\x7E]/g) // eslint-disable-line no-control-regex
+          // biome-ignore lint:
+          .match(/[^\x01-\x7E]/g)
           ?.filter((c, i, self) => self.indexOf(c) === i)
           .join(", ") ?? ""
       }」が含まれています。半角文字の間違いではないか確認してください。`,
@@ -81,28 +83,35 @@ function checkJapaneseZenkaku(s: string): string[] {
 }
 
 export function AppWiFi() {
-  const [_ssid, pass, setWiFiSettings] = useWiFiSettings(HUB_HOST);
+  const [ssid, pass, setWiFiSettings] = useWiFiSettings(HUB_HOST);
   const { wifiApList } = useKachakaButtonHub(HUB_HOST);
   const [mode, setMode] = useState<
     "input" | "scanning" | "writing" | "done" | "error"
   >("input");
 
   const [selectedSsid, ssidSelectProps] = useSelect(
-    (Array.isArray(wifiApList) ? wifiApList : [])
-      ?.map(({ ssid }) => ssid)
-      .filter((ssid, i, self) => self.indexOf(ssid) === i) ?? [],
+    [
+      ...((Array.isArray(wifiApList) ? wifiApList : [])
+        ?.map(({ ssid }) => ssid)
+        .filter((ssid, i, self) => self.indexOf(ssid) === i) ?? []),
+      SSID_MANUAL_INPUT,
+    ],
     "",
     "(Wi-Fiを選択してください)",
   );
+  const ssidInput = useInput(ssid ?? "");
   const passInput = useInput(pass ?? "");
   const [showPass, setShowPass] = useState(false);
 
   const handleSubmit = useCallback(() => {
     setMode("writing");
-    setWiFiSettings(selectedSsid, passInput.value)
+    setWiFiSettings(
+      selectedSsid === SSID_MANUAL_INPUT ? ssidInput.value : selectedSsid,
+      passInput.value,
+    )
       .then(() => setMode("done"))
       .catch(() => setMode("error"));
-  }, [selectedSsid, passInput, setWiFiSettings]);
+  }, [selectedSsid, ssidInput, passInput, setWiFiSettings]);
 
   const handleRescan = useCallback(() => {
     setMode("scanning");
@@ -130,7 +139,7 @@ export function AppWiFi() {
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                marginBottom: 8,
+                marginBottom: 4,
               }}
             >
               {Array.isArray(wifiApList) && wifiApList.length > 0 ? (
@@ -145,11 +154,14 @@ export function AppWiFi() {
                 </select>
               )}
               <button
+                type="button"
                 className="icon"
                 onClick={handleRescan}
                 disabled={wifiApList === "scanning"}
               >
-                <Icon children={<MdReplay />} />
+                <Icon>
+                  <MdReplay />
+                </Icon>
                 再スキャン
               </button>
             </div>
@@ -161,23 +173,45 @@ export function AppWiFi() {
               }}
             >
               <input
-                {...passInput}
-                placeholder="Password"
-                type={showPass ? "text" : "password"}
-                style={{ paddingRight: 90 }}
-              />
-              <button
-                onClick={() => setShowPass(!showPass)}
+                {...ssidInput}
+                placeholder="SSID"
+                type="text"
                 style={{
-                  position: "absolute",
-                  right: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  padding: "2px 8px",
+                  fontFamily: "monospace",
+                  display:
+                    selectedSsid === SSID_MANUAL_INPUT ? undefined : "none",
                 }}
-              >
-                {showPass ? "非表示" : "表示"}
-              </button>
+              />
+            </div>
+            <div
+              style={{
+                marginBottom: 4,
+                position: "relative",
+                width: "fit-content",
+              }}
+            >
+              <input
+                {...passInput}
+                placeholder={selectedSsid === "" ? "" : "Password"}
+                type={showPass ? "text" : "password"}
+                style={{ paddingRight: 90, fontFamily: "monospace" }}
+                disabled={selectedSsid === ""}
+              />
+              {selectedSsid !== "" && (
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    padding: "2px 8px",
+                  }}
+                >
+                  {showPass ? "非表示" : "表示"}
+                </button>
+              )}
             </div>
             <div
               style={{
@@ -187,8 +221,11 @@ export function AppWiFi() {
               }}
             >
               <div style={{ overflowY: "hidden" }}>
-                {checkJapaneseZenkaku(passInput.value).map((msg, i) => (
-                  <p key={i} style={{ color: "red", display: "flex", gap: 4 }}>
+                {checkJapaneseZenkaku(passInput.value).map((msg) => (
+                  <p
+                    key={msg}
+                    style={{ color: "red", display: "flex", gap: 4 }}
+                  >
                     <MdError />
                     <span style={{ flex: 1 }}>{msg}</span>
                   </p>
@@ -200,9 +237,9 @@ export function AppWiFi() {
                   ] as { level: "high" | "low"; color: string }[]
                 ).map(({ level, color }) =>
                   checkConfusableCharacters(passInput.value, level).map(
-                    (msg, i) => (
+                    (msg) => (
                       <p
-                        key={i}
+                        key={msg}
                         style={{ color: color, display: "flex", gap: 4 }}
                       >
                         <MdErrorOutline />
@@ -215,6 +252,7 @@ export function AppWiFi() {
             </div>
             <div style={{ marginTop: 4 }}>
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={selectedSsid === "" || passInput.value === ""}
               >
@@ -248,7 +286,10 @@ export function AppWiFi() {
       </div>
       {mode === "scanning" && (
         <Backdrop alpha={0.4}>
-          <p>Wi-Fiスキャン中...</p>
+          <p>
+            <progress />
+            Wi-Fiスキャン中...
+          </p>
         </Backdrop>
       )}
     </>

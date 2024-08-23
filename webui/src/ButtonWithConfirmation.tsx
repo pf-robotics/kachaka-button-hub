@@ -21,13 +21,20 @@ export function ButtonWithConfirmation({
 
   return (
     <div>
-      <button onClick={() => setOpen(true)} style={style} disabled={disabled}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={style}
+        disabled={disabled}
+      >
         {children}
       </button>
       <Modal open={open} onClose={() => setOpen(false)}>
         <h3>確認</h3>
         <p>{confirmText}</p>
-        <button onClick={onClick}>{confirmButtonText}</button>
+        <button type="button" onClick={onClick}>
+          {confirmButtonText}
+        </button>
       </Modal>
     </div>
   );

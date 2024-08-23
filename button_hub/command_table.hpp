@@ -6,6 +6,7 @@
 #include <ctime>
 #include <deque>
 #include <map>
+#include <vector>
 
 #include "mutex.hpp"
 
@@ -217,6 +218,11 @@ struct Command {
   double lock_duration_sec;
 };
 
+struct ButtonCommandPair {
+  KButton button;
+  Command command;
+};
+
 class CommandTable {
  public:
   CommandTable(int max_observed_buttons);
@@ -229,23 +235,30 @@ class CommandTable {
 
   void SetCommand(const KButton& button, const Command& command);
   void DeleteCommand(const KButton& button);
-  void DeleteAllCommands();
-  std::map<KButton, Command> GetCommands() const;
+  std::vector<ButtonCommandPair> GetCommands() const;
   bool GetCommandByButton(const KButton& button, Command* command) const;
 
   void SetButtonName(const KButton& button, const String& name);
   void DeleteButtonName(const KButton& button);
-  void DeleteAllButtonNames();
   std::map<KButton, String> GetButtonNames() const;
+
+  bool LoadCommand(const String& json);
+  bool LoadCommandArray(const String& json);
 
   void Save();
   void Load();
   void Reset();
 
  private:
+  void SetCommandLocked(const KButton& button, const Command& command);
+  void DeleteCommandLocked(const KButton& button);
+  void SetButtonNameLocked(const KButton& button, const String& name);
+  bool LoadCommandArrayLocked(const String& json);
+  bool LoadButtonNameArrayLocked(const String& json);
+
   int max_observed_buttons_;
   mutable kb::Mutex mutex_;
   std::deque<ObservedButton> observed_buttons_;
-  std::map<KButton, Command> registered_commands_;
+  std::vector<ButtonCommandPair> registered_commands_;
   std::map<KButton, String> button_names_;
 };

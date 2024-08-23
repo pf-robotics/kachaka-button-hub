@@ -3,6 +3,20 @@ import { useCallback } from "react";
 import { RobotHostEditor } from "./RobotHostEditor";
 import { RobotInfo, Settings } from "./types";
 
+import { MdCheckCircle } from "react-icons/md";
+
+export function CheckMark() {
+  return (
+    <MdCheckCircle
+      style={{
+        color: "var(--status-success)",
+        fontSize: "1.2em",
+        marginRight: 8,
+      }}
+    />
+  );
+}
+
 export function InitialUi({
   hubHost,
   robotInfo,
@@ -13,9 +27,9 @@ export function InitialUi({
   settings: Settings | undefined;
 }) {
   const handleReboot = useCallback(() => {
-    fetch(`http://${hubHost}/reboot`).then(
-      () => (window.location.hash = "#reboot"),
-    );
+    fetch(`http://${hubHost}/reboot`).then(() => {
+      window.location.hash = "#reboot";
+    });
   }, [hubHost]);
 
   return (
@@ -39,30 +53,55 @@ export function InitialUi({
       </p>
       <p>
         ▶ 接続が不安定な場合は、
-        <a href="#" onClick={handleReboot}>
+        <button type="button" onClick={handleReboot}>
           Hubの再起動
-        </a>
+        </button>
         を試してください。
       </p>
       <ul>
-        <li>バージョン ... {robotInfo?.robot_version ?? "(取得中...)"}</li>
+        <li>
+          バージョン ...{" "}
+          {robotInfo?.robot_version ? (
+            <>
+              <CheckMark />
+              {robotInfo?.robot_version}
+            </>
+          ) : (
+            <progress />
+          )}
+        </li>
         <li>
           家具一覧 ...{" "}
-          {robotInfo?.shelves?.length
-            ? `${robotInfo?.shelves.length}件`
-            : "(取得中...)"}
+          {robotInfo?.shelves?.length ? (
+            <>
+              <CheckMark />
+              {robotInfo?.shelves.length}件
+            </>
+          ) : (
+            <progress />
+          )}
         </li>
         <li>
           目的地一覧 ...{" "}
-          {robotInfo?.locations?.length
-            ? `${robotInfo?.locations.length}件`
-            : "(取得中...)"}
+          {robotInfo?.locations?.length ? (
+            <>
+              <CheckMark />
+              {robotInfo?.locations.length}件
+            </>
+          ) : (
+            <progress />
+          )}
         </li>
         <li>
           ショートカット一覧 ...{" "}
-          {robotInfo?.shortcuts?.length
-            ? `${robotInfo?.shortcuts.length}件`
-              : "(取得中...)"}
+          {robotInfo?.shortcuts?.length ? (
+            <>
+              <CheckMark />
+              {robotInfo?.shortcuts.length}件
+            </>
+          ) : (
+            <progress />
+          )}
         </li>
       </ul>
       <h2>カチャカのシリアル番号・IPアドレス</h2>

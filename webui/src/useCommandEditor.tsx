@@ -169,12 +169,14 @@ export function useCommandEditor(
     }
     out.cancel_all = cancelAllInput.checked;
     if (ttsOnSuccessInput.value === "") {
+      // biome-ignore lint: lint/performance/noDelete
       delete out.tts_on_success;
     } else {
       out.tts_on_success = ttsOnSuccessInput.value;
     }
     out.deferrable = deferrableInput.checked;
     if (lockDurationSecInput.value === 0) {
+      // biome-ignore lint: lint/performance/noDelete
       delete out.lock_duration_sec;
     } else {
       out.lock_duration_sec = lockDurationSecInput.value;
@@ -201,6 +203,8 @@ export function useCommandEditor(
   const disableOptions = [
     CommandType.PROCEED,
     CommandType.CANCEL_COMMAND,
+    CommandType.HTTP_GET,
+    CommandType.HTTP_POST,
   ].includes(selectedCommandType);
 
   return {

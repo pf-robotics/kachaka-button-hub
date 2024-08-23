@@ -10,6 +10,10 @@ void PlayInitialSetupNext();
 void PlayInitialSetupPrev();
 void PlayInitialSetupComplete();
 
+void PlayInitialSetupBleCommandReceived();
+void PlayInitialSetupBleCommandRejected();
+void PlayInitialSetupBleCommandCompleted();
+
 void PlayNextPage();
 
 void PlayCommandSent();

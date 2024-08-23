@@ -66,15 +66,16 @@ export function ObservedButton({
           <span style={{ display: "flex" }}>
             {registerred ? (
               <>
-                <Icon
-                  margin="right"
-                  children={<MdCheck style={{ color: "#4a4" }} />}
-                />
+                <Icon margin="right">
+                  <MdCheck style={{ color: "#4a4" }} />
+                </Icon>
                 登録済
               </>
             ) : (
-              <button onClick={() => onRegister(button)}>
-                <Icon color="inherit" margin="right" children={<MdAdd />} />
+              <button type="button" onClick={() => onRegister(button)}>
+                <Icon color="inherit" margin="right">
+                  <MdAdd />
+                </Icon>
                 登録する
               </button>
             )}

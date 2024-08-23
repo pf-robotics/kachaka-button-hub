@@ -1,0 +1,17 @@
+{
+  "files": {
+    "include": ["src/**/*.ts", "src/**/*.tsx", "*.ts", "*.json"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "style": {
+        "useImportType": "off"
+      }
+    }
+  }
+}

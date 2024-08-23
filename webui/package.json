@@ -6,14 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && gzip -k dist/index.js",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "lint-fix": "eslint . --ext ts,tsx --report-unused-disable-directives --fix",
+    "format": "biome format --write",
+    "lint": "biome lint",
+    "lint-fix": "biome lint --write",
+    "lint-fix-unsafe": "biome lint --write --unsafe",
     "preview": "vite preview"
   },
   "dependencies": {
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-react": "^7.33.2",
-    "prettier": "^3.2.4",
+    "jszip": "^3.10.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-icons": "^5.0.1",
@@ -21,14 +21,10 @@
     "ts-debounce": "^4.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.8.3",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
-    "@typescript-eslint/eslint-plugin": "^6.19.1",
-    "@typescript-eslint/parser": "^6.19.1",
     "@vitejs/plugin-react": "^4.2.1",
-    "eslint": "^8.56.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.5",
     "typescript": "^5.2.2",
     "vite": "^5.0.8"
   }

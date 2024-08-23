@@ -29,21 +29,34 @@ function _ButtonImage({
   const sizedStyle = { width: 64, height: 64, ...style };
   if ("apple_i_beacon" in button) {
     if (IsBraveridgeButton(button)) {
-      return <img src={BraveridgeButton} style={sizedStyle} />;
-    } else {
-      return <MdBluetoothSearching style={sizedStyle} />;
+      return (
+        <img
+          src={BraveridgeButton}
+          style={sizedStyle}
+          alt="Braveridge button"
+        />
+      );
     }
-  } else if ("m5_button" in button) {
+    return <MdBluetoothSearching style={sizedStyle} />;
+  }
+  if ("m5_button" in button) {
     switch (button.m5_button.id) {
       case 1:
-        return <img src={M5StackBtnA} style={sizedStyle} />;
+        return (
+          <img src={M5StackBtnA} style={sizedStyle} alt="M5Stack button A" />
+        );
       case 2:
-        return <img src={M5StackBtnB} style={sizedStyle} />;
+        return (
+          <img src={M5StackBtnB} style={sizedStyle} alt="M5Stack button B" />
+        );
       case 3:
-        return <img src={M5StackBtnC} style={sizedStyle} />;
+        return (
+          <img src={M5StackBtnC} style={sizedStyle} alt="M5Stack button C" />
+        );
     }
-    return <img src={M5Stack} style={sizedStyle} />;
-  } else if ("gpio_button" in button) {
+    return <img src={M5Stack} style={sizedStyle} alt="M5Stack button" />;
+  }
+  if ("gpio_button" in button) {
     switch (button.gpio_button.id) {
       case 1:
         return <Bs1Square style={sizedStyle} />;

@@ -4,7 +4,6 @@
 #include <M5Unified.h>
 
 #include "command_table.hpp"
-#include "command_table_io.hpp"
 #include "from_json.hpp"
 #include "server.hpp"
 #include "to_json.hpp"
@@ -18,7 +17,7 @@ void HandleGetObservedButtons(AsyncWebServerRequest* request,
 
 void HandlePostCommand(AsyncWebServerRequest* request, const String& body,
                        CommandTable& command_table) {
-  if (command_table_io::LoadCommand(body, command_table)) {
+  if (command_table.LoadCommand(body)) {
     command_table.Save();
     // button names may have changed if the button is new
     server::EnqueueWsMessage(to_json::ConvertObservedButtons(
@@ -33,7 +32,7 @@ void HandlePostCommand(AsyncWebServerRequest* request, const String& body,
 
 void HandlePutCommands(AsyncWebServerRequest* request, const String& body,
                        CommandTable& command_table) {
-  if (command_table_io::LoadCommandArray(body, command_table)) {
+  if (command_table.LoadCommandArray(body)) {
     command_table.Save();
     server::EnqueueWsMessage(
         to_json::ConvertCommands(command_table.GetCommands()));

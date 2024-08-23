@@ -8,6 +8,7 @@
 #include "beep.hpp"
 #include "bluetooth.hpp"
 #include "bluetooth_beacon.hpp"
+#include "bluetooth_peripheral.hpp"
 #include "command_table.hpp"
 #include "fetch_state.hpp"
 #include "gpio_button.hpp"
@@ -81,7 +82,6 @@ static void BeaconCallback(const char* name, const uint8_t address[6],
       uuid[7], uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13],
       uuid[14], uuid[15], major, minor, tx_power, rssi);
   logging::Log("Beacon: %s", beacon_str);
-  Serial.println(beacon_str);
 
   const double estimated_distance = std::pow(10.0, (tx_power - rssi) / 20.0);
 
@@ -90,7 +90,6 @@ static void BeaconCallback(const char* name, const uint8_t address[6],
   if (const kb::LockGuard lock(g_button_queue_mutex); lock) {
     g_button_queue.emplace_back(button, estimated_distance);
   } else {
-    Serial.println("Discarding button event due to lock failure");
     logging::Log("Beacon: Discarding button event due to lock failure");
   }
 }
@@ -157,7 +156,10 @@ static void CheckReboot() {
     return;
   }
   if (prev_hour == 4 && timeinfo.tm_hour == 5) {
+    screen::DrawWhiteTextWithBlackScreen({"朝5時の定期再起動", "を実行します"});
     logging::Log("Rebooting due to a.m. 5 ...");
+    logging::Update();
+    delay(1000);
     ESP.restart();
   }
   prev_hour = timeinfo.tm_hour;
@@ -168,9 +170,35 @@ static void CheckReboot() {
     last_connected_time = millis();
   } else {
     if (millis() - last_connected_time > 3 * 60 * 1000) {
+      screen::DrawWhiteTextWithBlackScreen(
+          {"Wi-Fi接続が切れたまま", "復帰できないので", "再起動します"});
       logging::Log("Rebooting due to disconnection ...");
+      logging::Update();
+      delay(1000);
       ESP.restart();
     }
+  }
+
+  // Fetch
+  if (!fetch_state::IsCompleted()) {
+    if (fetch_state::GetDurationFromLastStart() > 3 * 60 * 1000) {
+      screen::DrawWhiteTextWithBlackScreen(
+          {"ロボットからの情報取得", "が長引いているので", "再起動します"});
+      logging::Log("Rebooting due to fetch timeout ...");
+      logging::Update();
+      delay(1000);
+      ESP.restart();
+    }
+  }
+
+  // Ping
+  if (ping_to_robot::GetDurationFromLastSuccess() > 3 * 60 * 1000) {
+    screen::DrawWhiteTextWithBlackScreen(
+        {"ロボットへのpingが", "失敗し続けているので", "再起動します"});
+    logging::Log("Rebooting due to ping failure ...");
+    logging::Update();
+    delay(1000);
+    ESP.restart();
   }
 
   // Stats
@@ -184,10 +212,11 @@ static void CountDownReboot() {
     return;
   }
   if (--g_reboot_count_down <= 0) {
-    Serial.println("Rebooting ...");
+    logging::Log("Rebooting ...");
+    logging::Update();
     ESP.restart();
   }
-  Serial.printf("Count down ... %d\n", g_reboot_count_down);
+  logging::Log("Count down ... %d", g_reboot_count_down);
 }
 
 static void InitSpiffs() {
@@ -294,6 +323,8 @@ void setup() {
     Serial.print("Hub IP: ");
     Serial.println(WiFi.softAPIP());
 
+    bluetooth_peripheral::Begin();
+
     server::SetupHttpServerForWiFiSetting(g_robot, g_command_table);
 
     g_mode = Mode::kInitialSetup;
@@ -323,6 +354,7 @@ static void SetupOta() {
       []() {  // on_start
         server::Stop();
         bluetooth_beacon::Stop();
+        bluetooth_peripheral::Stop();
         ping_to_robot::Stop();
         g_page = Page::kOta;
         DrawScreen();
@@ -407,6 +439,7 @@ void loop() {
     }
     g_wifi_rssi_timer.update();
     g_clock_timer.update();
+    g_count_down_reboot_timer.update();
   } else if (g_mode == Mode::kButtonServer) {
     M5.update();
     bool need_redraw = false;
@@ -461,7 +494,6 @@ void loop() {
     g_wifi_rssi_timer.update();
     g_reboot_timer.update();
     g_clock_timer.update();
-    g_count_down_reboot_timer.update();
   }
   server::FlushWsMessageQueue();
   logging::Update();

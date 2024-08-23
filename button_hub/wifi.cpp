@@ -27,6 +27,8 @@ ConnectState ConnectToWiFi(const char* ssid, const char* password,
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
   WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
 
+  WiFi.setMinSecurity(WIFI_AUTH_WEP);
+
   const auto now = millis();
   WiFi.begin(ssid, password);
   do {

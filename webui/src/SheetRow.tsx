@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 
 import { Button, CommandType, Command, RobotInfo } from "./types";
 import { useCommandEditor } from "./useCommandEditor";
@@ -10,6 +10,7 @@ export function SheetRow({
   button,
   command,
   robotInfo,
+  recentlyPressed,
   enableShortcutFeature,
   onEdit,
   onDelete,
@@ -20,6 +21,7 @@ export function SheetRow({
   button: Button;
   command: Command;
   robotInfo: RobotInfo | undefined;
+  recentlyPressed: boolean;
   enableShortcutFeature: boolean;
   onEdit: (button: Button, command: Command) => void;
   onDelete: (button: Button) => void;
@@ -73,8 +75,33 @@ export function SheetRow({
     [selectedCommandType],
   );
 
+  const HIGHLIGHT_COLOR = "#ff0";
+  const HIGHLIGHT_DURATION = "5s";
+
+  const ref = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    if (recentlyPressed) {
+      const handle = setTimeout(() => {
+        ref.current?.style.setProperty("background-color", "inherit");
+        ref.current?.style.setProperty(
+          "transition",
+          `background-color ${HIGHLIGHT_DURATION}`,
+        );
+      }, 10);
+      return () => clearTimeout(handle);
+    }
+  }, [recentlyPressed]);
+
   return (
-    <tr>
+    <tr
+      ref={ref}
+      style={{
+        transition: recentlyPressed
+          ? "none"
+          : `background-color ${HIGHLIGHT_DURATION}`,
+        backgroundColor: recentlyPressed ? HIGHLIGHT_COLOR : "inherit",
+      }}
+    >
       {groupSpan === 0 ? null : <td rowSpan={groupSpan}>{groupLabel}</td>}
       <td style={bgStyle}>{itemLabel}</td>
       <td style={bgStyle}>
@@ -122,6 +149,7 @@ export function SheetRow({
       <td {...optProps}>{lockDurationSecInput} 秒</td>
       <td style={bgStyle}>
         <button
+          type="button"
           disabled={!modified}
           onClick={handleEdit}
           style={{
@@ -131,7 +159,9 @@ export function SheetRow({
         >
           保存
         </button>{" "}
-        <button onClick={handleDelete}>削除</button>
+        <button type="button" onClick={handleDelete}>
+          削除
+        </button>
       </td>
     </tr>
   );

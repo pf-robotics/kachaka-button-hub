@@ -19,7 +19,7 @@ import { SheetRowEmpty } from "./SheetRowEmpty";
 
 interface ButtonGroup {
   address: string;
-  button: Map<
+  buttonMap: Map<
     string,
     {
       label: string;
@@ -27,6 +27,7 @@ interface ButtonGroup {
       command?: Command;
     }
   >;
+  isSeparator?: boolean;
 }
 
 function AddAppleIBeacon(
@@ -40,7 +41,7 @@ function AddAppleIBeacon(
     const buttonBase = { ...button };
     group = {
       address: button.apple_i_beacon.address,
-      button: new Map([
+      buttonMap: new Map([
         [
           `${idPrefix}:1`,
           {
@@ -86,16 +87,16 @@ function AddM5Button(button: { m5_button: M5Button }, out: ButtonGroup[]) {
     const buttonBase = { ...button };
     group = {
       address: "m5_button",
-      button: new Map([
+      buttonMap: new Map([
         [
-          `m5_button:2`,
+          "m5_button:2",
           {
             label: "HubボタンA",
             button: { ...buttonBase, m5_button: { id: 2 } },
           },
         ],
         [
-          `m5_button:3`,
+          "m5_button:3",
           {
             label: "HubボタンB",
             button: { ...buttonBase, m5_button: { id: 3 } },
@@ -116,7 +117,7 @@ function AddGpioButton(
     const buttonBase = { ...button };
     group = {
       address: "gpio_button",
-      button: new Map(
+      buttonMap: new Map(
         [1, 2, 3, 4, 5, 6].map((id) => [
           `gpio_button:${id}`,
           {
@@ -141,26 +142,31 @@ function CreateButtonGroup(
       const group = out.find(
         (x) => x.address === button.apple_i_beacon.address,
       );
-      const item = group?.button.get(GetButtonId(button));
+      const item = group?.buttonMap.get(GetButtonId(button));
       if (item) {
         item.command = command;
       }
     } else if ("m5_button" in button) {
       AddM5Button(button, out);
       const group = out.find((x) => x.address === "m5_button");
-      const item = group?.button.get(GetButtonId(button));
+      const item = group?.buttonMap.get(GetButtonId(button));
       if (item) {
         item.command = command;
       }
     } else if ("gpio_button" in button) {
       AddGpioButton(button, out);
       const group = out.find((x) => x.address === "gpio_button");
-      const item = group?.button.get(GetButtonId(button));
+      const item = group?.buttonMap.get(GetButtonId(button));
       if (item) {
         item.command = command;
       }
     }
   }
+  out.push({
+    address: "",
+    buttonMap: new Map(),
+    isSeparator: true,
+  });
   for (const button of buttons) {
     if ("apple_i_beacon" in button) {
       AddAppleIBeacon(button, out);
@@ -193,6 +199,7 @@ export function Sheet({
   buttons,
   commands,
   buttonIdToNameMap,
+  recentPressedButtonId,
   robotInfo,
   enableShortcutFeature,
   onEdit,
@@ -203,6 +210,7 @@ export function Sheet({
   buttons: Button[] | undefined;
   commands: { button: Button; command: Command }[] | undefined;
   buttonIdToNameMap: Map<string, string>;
+  recentPressedButtonId: string[];
   robotInfo: RobotInfo | undefined;
   enableShortcutFeature: boolean;
   onEdit: (button: Button, command: Command) => Promise<void>;
@@ -272,52 +280,67 @@ export function Sheet({
           </th>
           <th>コマンド成功後に発話</th>
           <th>到着後待機</th>
-          <th></th>
+          <th />
         </tr>
-        {groups.map(({ address, button }) => (
-          <Fragment key={address}>
-            <SpacerRow />
-            {Array.from(button).map(
-              ([id, { label, button, command }], index, array) =>
-                command === undefined ? (
-                  <SheetRowEmpty
-                    key={id}
-                    groupSpan={index === 0 ? array.length : 0}
-                    groupLabel={
-                      index === 0 ? createGroupLabel(button) : undefined
-                    }
-                    itemLabel={label}
-                    onAdd={() =>
-                      onEdit(button, {
-                        type: CommandType.RETURN_HOME,
-                        cancel_all: false,
-                      })
-                    }
-                  />
-                ) : (
-                  <SheetRow
-                    key={GetButtonId(button)}
-                    groupSpan={index === 0 ? array.length : 0}
-                    groupLabel={
-                      index === 0 ? createGroupLabel(button) : undefined
-                    }
-                    itemLabel={label}
-                    button={button}
-                    command={
-                      command ?? {
-                        type: CommandType.RETURN_HOME,
-                        cancel_all: false,
+        {groups.map(({ address, buttonMap, isSeparator }) =>
+          isSeparator ? (
+            <Fragment key={1}>
+              <SpacerRow />
+              <tr className="spacer">
+                <th colSpan={9}>未登録のボタン</th>
+              </tr>
+            </Fragment>
+          ) : (
+            <Fragment key={address}>
+              <SpacerRow />
+              {Array.from(buttonMap).map(
+                ([id, { label, button, command }], index, array) =>
+                  command === undefined ? (
+                    <SheetRowEmpty
+                      key={id}
+                      groupSpan={index === 0 ? array.length : 0}
+                      groupLabel={
+                        index === 0 ? createGroupLabel(button) : undefined
                       }
-                    }
-                    enableShortcutFeature={enableShortcutFeature}
-                    robotInfo={robotInfo}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                  />
-                ),
-            )}
-          </Fragment>
-        ))}
+                      itemLabel={label}
+                      recentlyPressed={recentPressedButtonId.includes(
+                        GetButtonId(button),
+                      )}
+                      onAdd={() =>
+                        onEdit(button, {
+                          type: CommandType.RETURN_HOME,
+                          cancel_all: false,
+                        })
+                      }
+                    />
+                  ) : (
+                    <SheetRow
+                      key={GetButtonId(button)}
+                      groupSpan={index === 0 ? array.length : 0}
+                      groupLabel={
+                        index === 0 ? createGroupLabel(button) : undefined
+                      }
+                      itemLabel={label}
+                      button={button}
+                      command={
+                        command ?? {
+                          type: CommandType.RETURN_HOME,
+                          cancel_all: false,
+                        }
+                      }
+                      enableShortcutFeature={enableShortcutFeature}
+                      robotInfo={robotInfo}
+                      recentlyPressed={recentPressedButtonId.includes(
+                        GetButtonId(button),
+                      )}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                    />
+                  ),
+              )}
+            </Fragment>
+          ),
+        )}
       </tbody>
     </table>
   );

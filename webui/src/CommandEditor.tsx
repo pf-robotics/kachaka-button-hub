@@ -206,7 +206,12 @@ export function CommandEditor({
         )}
       </div>
       <div style={{ margin: 8, display: "flex", justifyContent: "center" }}>
-        <button className="primary" disabled={!modified} onClick={handleSubmit}>
+        <button
+          type="button"
+          className="primary"
+          disabled={!modified}
+          onClick={handleSubmit}
+        >
           保存
         </button>
       </div>

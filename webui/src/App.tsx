@@ -52,6 +52,15 @@ export function App({
     [filterredButtons],
   );
 
+  const recentPressedButtonId =
+    buttons
+      ?.filter(({ timestamp }) =>
+        timestamp === undefined
+          ? false
+          : Date.now() - timestamp.getTime() < 1000,
+      )
+      .map((button) => GetButtonId(button)) ?? [];
+
   const [progressCount, setProgressCount] = useState(0);
 
   const editCommand = useCallback((button: Button, command: Command) => {
@@ -132,21 +141,29 @@ export function App({
   const enableShortcutFeature =
     robotVersionInt === undefined || robotVersionInt >= getIntVersion("3.1.0");
 
-  const [warnings, setWarnings] = useState<JSX.Element[]>([]);
+  const [warnings, setWarnings] = useState<
+    Array<{ key: string; elem: JSX.Element }>
+  >([]);
   useEffect(() => {
-    const out: JSX.Element[] = [];
+    const out = [];
     if (hubInfo && hubInfo.client_count > 2) {
-      out.push(
-        <>
-          ⚠
-          接続中の画面数が多くなっています。ボタンの動作に影響するため、接続数を減らしてください。
-          <br />
-          <b>接続中の設定画面 : {hubInfo.client_count}</b>
-        </>,
-      );
+      out.push({
+        key: "client_count",
+        elem: (
+          <>
+            ⚠
+            接続中の画面数が多くなっています。ボタンの動作に影響するため、接続数を減らしてください。
+            <br />
+            <b>接続中の設定画面 : {hubInfo.client_count}</b>
+          </>
+        ),
+      });
     }
     if (networkState === "unstable") {
-      out.push(<>⚠ ネットワーク接続が不安定です。</>);
+      out.push({
+        key: "network_unstable",
+        elem: <>⚠ ネットワーク接続が不安定です。</>,
+      });
     }
     setWarnings(out);
   }, [hubInfo, networkState]);
@@ -181,6 +198,7 @@ export function App({
               buttons={filterredButtons}
               commands={filterredCommands}
               buttonIdToNameMap={buttonIdToNameMap}
+              recentPressedButtonId={recentPressedButtonId}
               robotInfo={robotInfo}
               onEdit={editCommand}
               onDelete={deleteCommand}
@@ -196,6 +214,7 @@ export function App({
             buttons={filterredButtons}
             commands={filterredCommands}
             buttonIdToNameMap={buttonIdToNameMap}
+            recentPressedButtonId={recentPressedButtonId}
             robotInfo={robotInfo}
             enableShortcutFeature={enableShortcutFeature}
             onEdit={editCommand}
@@ -251,16 +270,22 @@ export function App({
       {warnings.length > 0 && <StackedWarning items={warnings} />}
       {progressCount > 0 && (
         <Backdrop alpha={0.4}>
-          <p>処理中...</p>
+          <p>
+            <progress />
+            処理中...
+          </p>
         </Backdrop>
       )}
       {networkState === "offline" && (
         <Backdrop>
-          <p>カチャカボタンHubに接続を試みています</p>
           <p>
-            <a href="#" onClick={() => window.location.reload()}>
+            <progress />
+            カチャカボタンHubに接続を試みています
+          </p>
+          <p>
+            <button type="button" onClick={() => window.location.reload()}>
               リロード
-            </a>
+            </button>
           </p>
         </Backdrop>
       )}

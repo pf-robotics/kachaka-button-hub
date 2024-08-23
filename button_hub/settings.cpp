@@ -8,7 +8,8 @@ static constexpr char kDefaultRobotHost[] = "";
 static constexpr char kDefaultNtpServer[] = "time.aws.com";
 static constexpr int kDefaultBeepVolume = 5;
 static constexpr int kDefaultScreenBrightness = 64;
-static constexpr bool kDefaultAutoOtaIsEnabled = false;
+static constexpr bool kDefaultAutoOtaIsEnabled = true;
+static constexpr bool kDefaultOneShotAutoOtaIsEnabled = false;
 static constexpr bool kDefaultAutoRefetchOnUiLoad = false;
 static constexpr bool kDefaultGpioButtonIsEnabled = false;
 
@@ -25,7 +26,7 @@ void Settings::Begin(Preferences* prefs) {
       prefs_->getInt("scrn_brightness", kDefaultScreenBrightness);
   auto_ota_is_enabled_ = prefs_->getBool("auto_ota", kDefaultAutoOtaIsEnabled);
   one_shot_auto_ota_is_enabled_ =
-      prefs_->getBool("1shot_auto_ota", kDefaultAutoOtaIsEnabled);
+      prefs_->getBool("1shot_auto_ota", kDefaultOneShotAutoOtaIsEnabled);
   auto_refetch_on_ui_load_ =
       prefs_->getBool("auto_refetch", kDefaultAutoRefetchOnUiLoad);
   gpio_button_is_enabled_ =

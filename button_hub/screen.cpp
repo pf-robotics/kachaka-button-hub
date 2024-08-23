@@ -4,7 +4,6 @@
 #include <cmath>
 
 #include "mutex.hpp"
-#include "settings.hpp"
 #include "version.hpp"
 
 namespace {
@@ -153,6 +152,19 @@ namespace screen {
 
 void Begin(const int brightness) {
   M5.Lcd.setBrightness(brightness);
+}
+
+void DrawWhiteTextWithBlackScreen(const std::vector<const char*>& lines) {
+  M5.Lcd.fillScreen(TFT_BLACK);
+  M5.Lcd.setFont(&lgfx::fonts::lgfxJapanGothicP_24);
+  M5.Lcd.setTextColor(TFT_WHITE);
+  M5.Lcd.setTextDatum(CC_DATUM);
+  const int lh = M5.Lcd.fontHeight() + 2;
+  const int total = lines.size();
+  for (int i = 0; i < total; ++i) {
+    M5.Lcd.drawString(lines.at(i), kScreenWidth / 2,
+                      (kScreenHeight - lh * (total - 1)) / 2 + lh * i);
+  }
 }
 
 void DrawWiFiConnectingPage(bool init) {
@@ -395,17 +407,19 @@ void DrawClock() {
 
 void DrawWiFiSignalStrength(const bool connected, const int rssi) {
   const kb::LockGuard lock(g_mutex);
+
+  // Draw signal strength bars
   int siglevel = 0;
-  if (rssi <= -90) {
-    siglevel = 0;
-  } else if (rssi <= -80) {
-    siglevel = 1;
-  } else if (rssi <= -70) {
-    siglevel = 2;
-  } else if (rssi <= -67) {
-    siglevel = 3;
-  } else {
+  if (rssi >= -60) {
     siglevel = 4;
+  } else if (rssi >= -65) {
+    siglevel = 3;
+  } else if (rssi >= -70) {
+    siglevel = 2;
+  } else if (rssi >= -75) {
+    siglevel = 1;
+  } else {
+    siglevel = 0;
   }
   constexpr int kBarWidth = 3;
   constexpr int kBarPadding = 2;
@@ -415,6 +429,19 @@ void DrawWiFiSignalStrength(const bool connected, const int rssi) {
                     !connected            ? TFT_RED
                     : siglevel >= (i + 1) ? kKachakaGray5
                                           : kKachakaGray2);
+  }
+
+  // Draw warning text on the left side of the bars if the signal is weak
+  static const char* text = "Wi-Fi電波弱い";
+  M5.Lcd.setFont(kFontJaSB);
+  const int width = M5.Lcd.textWidth(text);
+  if (siglevel <= 1) {
+    M5.Lcd.setTextColor(TFT_RED, TFT_WHITE);
+    M5.Lcd.setCursor(kWiFiSignalStrengthX - 2 - width, kHeaderMargin);
+    M5.Lcd.print(text);
+  } else {
+    M5.Lcd.fillRect(kWiFiSignalStrengthX - 2 - width, kHeaderMargin, width,
+                    M5.Lcd.fontHeight(), TFT_WHITE);
   }
 }
 

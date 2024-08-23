@@ -4,7 +4,7 @@ import { Button, GetButtonId } from "./types";
 import { ObservedButton } from "./ObservedButton";
 
 function isBeaconButton(button: Button) {
-  return "apple_i_beacon" in button; 
+  return "apple_i_beacon" in button;
 }
 
 function isM5Button(button: Button) {
@@ -12,7 +12,10 @@ function isM5Button(button: Button) {
 }
 
 function compareButtonSortKeys(lhs: Button, rhs: Button) {
-  if ((isBeaconButton(lhs) && isBeaconButton(rhs)) || (isM5Button(lhs) && isM5Button(rhs))) {
+  if (
+    (isBeaconButton(lhs) && isBeaconButton(rhs)) ||
+    (isM5Button(lhs) && isM5Button(rhs))
+  ) {
     const lhsNameComplemented = lhs.name ?? "";
     const rhsNameComplemented = rhs.name ?? "";
     if (lhsNameComplemented === rhsNameComplemented) {
@@ -24,7 +27,10 @@ function compareButtonSortKeys(lhs: Button, rhs: Button) {
     if (rhsNameComplemented === "") {
       return -1;
     }
-    const colloator = new Intl.Collator("ja-JP", { numeric: true, sensitivity: "base"});
+    const colloator = new Intl.Collator("ja-JP", {
+      numeric: true,
+      sensitivity: "base",
+    });
     return colloator.compare(lhsNameComplemented, rhsNameComplemented);
   }
   return isBeaconButton(lhs) ? -1 : 1;
@@ -62,7 +68,9 @@ export function ObservedButtonList({
     <>
       <h2>見つかったボタン</h2>
       <div>
-        {buttons.filter((button) => !("m5_button" in button || "hub_plus_button" in button)).length === 0 ? (
+        {buttons.filter(
+          (button) => !("m5_button" in button || "hub_plus_button" in button),
+        ).length === 0 ? (
           <p style={{ textAlign: "center" }}>
             （ボタンを押すと、ここに表示されます）
           </p>

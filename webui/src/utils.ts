@@ -42,6 +42,6 @@ export function isValidVersion(version: string | undefined): boolean {
 export function getIntVersion(version: string): number {
   return version
     .split(".")
-    .map((x) => parseInt(x, 10))
+    .map((x) => Number.parseInt(x, 10))
     .reduce((prev, cur) => prev * 1000 + cur, 0);
 }

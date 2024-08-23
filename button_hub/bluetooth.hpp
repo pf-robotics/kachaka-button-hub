@@ -4,6 +4,7 @@
 
 namespace bluetooth {
 
+String GetUniqueDeviceName();
 void Init();
 
 }  // namespace bluetooth

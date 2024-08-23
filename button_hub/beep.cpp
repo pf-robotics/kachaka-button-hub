@@ -54,6 +54,18 @@ void PlayInitialSetupComplete() {
   M5.Speaker.stop();
 }
 
+void PlayInitialSetupBleCommandReceived() {
+  PlayCommandSent();  // TODO: Replace
+}
+
+void PlayInitialSetupBleCommandRejected() {
+  PlayCommandFailed();  // TODO: Replace
+}
+
+void PlayInitialSetupBleCommandCompleted() {
+  PlayInitialSetupComplete();  // TODO: Replace
+}
+
 void PlayNextPage() {
   ToneAndDelay(kFreqC, kDuration, true);
 }

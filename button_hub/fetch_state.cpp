@@ -18,6 +18,7 @@ enum class State {
   kCompleted,
 };
 static State g_state = State::kUninitialized;
+static int64_t g_last_start_time = 0;
 
 // for throttle
 static int32_t g_last_fetch = 0;
@@ -113,6 +114,11 @@ bool IsCompleted() {
   return g_state == State::kCompleted;
 }
 
+int64_t GetDurationFromLastStart() {
+  const kb::LockGuard lock(g_mutex);
+  return millis() - g_last_start_time;
+}
+
 void FetchRobotInfo(RobotInfoHolder* robot_info) {
   {
     const kb::LockGuard lock(g_mutex);
@@ -125,6 +131,7 @@ void FetchRobotInfo(RobotInfoHolder* robot_info) {
         Serial.println("FetchRobotInfo: already running");
         return;
     }
+    g_last_start_time = millis();
   }
   xTaskCreate(RunFetchTask, "Fetch", 2 * 1024, robot_info, 2, nullptr);
 }

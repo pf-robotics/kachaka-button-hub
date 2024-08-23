@@ -186,6 +186,10 @@ bool ConvertCommandJson(JsonObject& root, KButton& out_button,
       }
       out_command.type = CommandType::HTTP_GET;
       out_command.http_get = {http_get["url"]};
+      out_command.cancel_all = false;
+      out_command.tts_on_success.clear();
+      out_command.deferrable = false;
+      out_command.lock_duration_sec = 0.0;
       break;
     }
     case static_cast<int>(CommandType::HTTP_POST): {
@@ -200,6 +204,10 @@ bool ConvertCommandJson(JsonObject& root, KButton& out_button,
       }
       out_command.type = CommandType::HTTP_POST;
       out_command.http_post = {http_post["url"], http_post["body"]};
+      out_command.cancel_all = false;
+      out_command.tts_on_success.clear();
+      out_command.deferrable = false;
+      out_command.lock_duration_sec = 0.0;
       break;
     }
   }
