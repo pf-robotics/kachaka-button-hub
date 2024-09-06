@@ -240,10 +240,12 @@ String GetDesiredHubVersion(const String& ota_endpoint) {
   }
 
   // Cache the result to avoid unnecessary network access
+  static bool s_first = true;
   static String s_version;
-  if (!s_version.isEmpty()) {
+  if (!s_first) {
     return s_version;
   }
+  s_first = false;
 
   String url = ota_endpoint + "/desired-version?button_hub_version=" + kVersion;
   Serial.printf("URL: \"%s\"\n", url.c_str());

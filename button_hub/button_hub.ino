@@ -288,9 +288,12 @@ void setup() {
   if (wifi_connect_state == wifi::ConnectState::kTimeout) {
     ESP.restart();
   } else if (wifi_connect_state == wifi::ConnectState::kConnected) {
+    screen::DrawCheckingUpdate();
     if (!g_settings.GetNtpServer().isEmpty()) {
       configTime(9 * 3600, 0, g_settings.GetNtpServer().c_str());
     }
+    // Pre-fetch desired version
+    ota::GetDesiredHubVersion(g_settings.GetOtaEndpoint());
     // Manual OTA?
     String ota_url = g_settings.GetOtaUrlAfterBoot();
     if (!ota_url.isEmpty()) {

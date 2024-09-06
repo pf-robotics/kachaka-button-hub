@@ -146,16 +146,18 @@ void HandleSetScreenBrightness(AsyncWebServerRequest* request,
 }
 
 void HandleGetDesiredHubVersion(AsyncWebServerRequest* request) {
-  String version = ota::GetDesiredHubVersion(g_settings.GetOtaEndpoint());
-  if (version.isEmpty()) {
-    request->send(500, "text/plain", "Failed to get desired hub version");
-    return;
-  }
-  const bool required = ota::CheckOtaIsRequired(kVersion, version);
-
   JsonDocument doc;
-  doc["desired_hub_version"] = std::move(version);
-  doc["ota_is_required"] = required;
+
+  const String version = ota::GetDesiredHubVersion(g_settings.GetOtaEndpoint());
+  if (version.isEmpty()) {
+    doc["success"] = false;
+  } else {
+    const bool required = ota::CheckOtaIsRequired(kVersion, version);
+    doc["success"] = true;
+    doc["desired_hub_version"] = std::move(version);
+    doc["ota_is_required"] = required;
+  }
+
   String out;
   serializeJson(doc, out);
   request->send(200, "text/json; charset=utf-8", out);

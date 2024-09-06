@@ -130,6 +130,10 @@ inline bool operator==(const M5Button& lhs, const M5Button& rhs) {
   return lhs.id == rhs.id;
 }
 
+inline bool operator==(const GpioButton& lhs, const GpioButton& rhs) {
+  return lhs.id == rhs.id;
+}
+
 inline bool operator==(const KButton& lhs, const KButton& rhs) {
   if (lhs.type == ButtonType::kAppleIBeacon &&
       rhs.type == ButtonType::kAppleIBeacon) {
@@ -137,6 +141,10 @@ inline bool operator==(const KButton& lhs, const KButton& rhs) {
   }
   if (lhs.type == ButtonType::kM5Button && rhs.type == ButtonType::kM5Button) {
     return lhs.data.m5_button.id == rhs.data.m5_button.id;
+  }
+  if (lhs.type == ButtonType::kGpioButton &&
+      rhs.type == ButtonType::kGpioButton) {
+    return lhs.data.gpio_button == rhs.data.gpio_button;
   }
   return lhs.type == rhs.type;
 }

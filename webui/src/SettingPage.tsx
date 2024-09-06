@@ -45,8 +45,13 @@ export function SettingPage({
     fetch(`http://${hubHost}/ota/desired_hub_version`)
       .then((res) => res.json())
       .then((res) => {
-        setDesiredHubVersion(res.desired_hub_version);
-        setOtaIsRequired(res.ota_is_required);
+        if (res.success) {
+          setDesiredHubVersion(res.desired_hub_version);
+          setOtaIsRequired(res.ota_is_required);
+        } else {
+          setDesiredHubVersion("(取得失敗)");
+          setOtaIsRequired(false);
+        }
       });
   }, [hubHost]);
 
@@ -125,7 +130,7 @@ export function SettingPage({
                 {desiredHubVersion ? (
                   <code>{desiredHubVersion}</code>
                 ) : (
-                  "(取得中...)"
+                  <progress />
                 )}
               </div>
             </div>

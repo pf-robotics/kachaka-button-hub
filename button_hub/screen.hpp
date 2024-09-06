@@ -11,6 +11,7 @@ void Begin(int brightness);
 void DrawWhiteTextWithBlackScreen(const std::vector<const char*>& lines);
 
 void DrawWiFiConnectingPage(bool init);
+void DrawCheckingUpdate();
 void DrawMainPage(const char* ssid, const char* hub_host,
                   const char* robot_host);
 void DrawStatusInMainPage(bool fetching, bool has_robot_version,

@@ -180,6 +180,12 @@ void DrawWiFiConnectingPage(bool init) {
   }
 }
 
+void DrawCheckingUpdate() {
+  M5.Lcd.setFont(&lgfx::fonts::lgfxJapanGothicP_24);
+  M5.Lcd.setCursor(0, 70);
+  M5.Lcd.print("アップデートを確認中...");
+}
+
 void DrawMainPage(const char* ssid, const char* hub_host,
                   const char* robot_host) {
   const kb::LockGuard lock(g_mutex);
