@@ -19,6 +19,11 @@ void Settings::Begin(Preferences* prefs) {
   prefs_ = prefs;
   wifi_ssid_ = prefs_->getString("wifi_ssid", kDefaultWiFiSsid);
   wifi_pass_ = prefs_->getString("wifi_pass", kDefaultWiFiPassword);
+  net_ip_address_ = prefs_->getString("net_ip", "");
+  net_subnet_mask_ = prefs_->getString("net_subnet", "");
+  net_gateway_ = prefs_->getString("net_gw", "");
+  net_dns_server_1_ = prefs_->getString("net_dns1", "");
+  net_dns_server_2_ = prefs_->getString("net_dns2", "");
   robot_host_ = prefs_->getString("api_host", kDefaultRobotHost);
   ntp_server_ = prefs_->getString("ntp_server", kDefaultNtpServer);
   beep_volume_ = prefs_->getInt("beep_volume", kDefaultBeepVolume);
@@ -33,11 +38,16 @@ void Settings::Begin(Preferences* prefs) {
       prefs_->getBool("gpio_button", kDefaultGpioButtonIsEnabled);
 
   Serial.printf(
-      "Settings: ssid=\"%s\", pass=XXXX, host=\"%s\", ntp=\"%s\", beep=%d, "
-      "brightness=%d, auto_ota=%d, auto_refetch=%d, gpio_button=%d\n",
-      wifi_ssid_.c_str(), robot_host_.c_str(), ntp_server_.c_str(),
-      beep_volume_, screen_brightness_, auto_ota_is_enabled_,
-      auto_refetch_on_ui_load_, gpio_button_is_enabled_);
+      "Network: ssid=\"%s\", pass=XXXX, ip=\"%s\", gw=\"%s\", "
+      "dns1=\"%s\", dns2=\"%s\", ntp=\"%s\"\n",
+      wifi_ssid_.c_str(), net_ip_address_.c_str(), net_gateway_.c_str(),
+      net_dns_server_1_.c_str(), net_dns_server_2_.c_str(),
+      ntp_server_.c_str());
+  Serial.printf(
+      "Settings: host=\"%s\", beep=%d, brightness=%d, auto_ota=%d, "
+      "auto_refetch=%d, gpio_button=%d\n",
+      robot_host_.c_str(), beep_volume_, screen_brightness_,
+      auto_ota_is_enabled_, auto_refetch_on_ui_load_, gpio_button_is_enabled_);
   Serial.printf(
       "OTA settings: ota_endpoint=\"%s\", ota_label=\"%s\", "
       "reboot_ota_url=\"%s\", auto_ota=%d, one_shot_auto_ota=%d\n",
@@ -61,6 +71,31 @@ const String& Settings::GetWiFiSsid() const {
 const String& Settings::GetWiFiPass() const {
   Check();
   return wifi_pass_;
+}
+
+const String& Settings::GetNetworkIpAddress() const {
+  Check();
+  return net_ip_address_;
+}
+
+const String& Settings::GetNetworkSubnetMask() const {
+  Check();
+  return net_subnet_mask_;
+}
+
+const String& Settings::GetNetworkGateway() const {
+  Check();
+  return net_gateway_;
+}
+
+const String& Settings::GetNetworkDnsServer1() const {
+  Check();
+  return net_dns_server_1_;
+}
+
+const String& Settings::GetNetworkDnsServer2() const {
+  Check();
+  return net_dns_server_2_;
 }
 
 const String& Settings::GetRobotHost() const {
@@ -129,6 +164,36 @@ void Settings::SetWiFiPass(const String& pass) {
   Check();
   wifi_pass_ = pass;
   prefs_->putString("wifi_pass", pass);
+}
+
+void Settings::SetNetworkIpAddress(const String& ip) {
+  Check();
+  net_ip_address_ = ip;
+  prefs_->putString("net_ip", ip);
+}
+
+void Settings::SetNetworkSubnetMask(const String& netmask) {
+  Check();
+  net_subnet_mask_ = netmask;
+  prefs_->putString("net_subnet", netmask);
+}
+
+void Settings::SetNetworkGateway(const String& gw) {
+  Check();
+  net_gateway_ = gw;
+  prefs_->putString("net_gw", gw);
+}
+
+void Settings::SetNetworkDnsServer1(const String& dns1) {
+  Check();
+  net_dns_server_1_ = dns1;
+  prefs_->putString("net_dns1", dns1);
+}
+
+void Settings::SetNetworkDnsServer2(const String& dns2) {
+  Check();
+  net_dns_server_2_ = dns2;
+  prefs_->putString("net_dns2", dns2);
 }
 
 void Settings::SetRobotHost(const String& host) {

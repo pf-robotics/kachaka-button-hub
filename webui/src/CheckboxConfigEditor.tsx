@@ -1,13 +1,12 @@
 import { useCallback } from "react";
+import { getHubHttpApiEndpoint } from "./utils";
 
 export function CheckboxConfigEditor({
-  hubHost,
   path,
   fieldKey,
   value,
   label,
 }: {
-  hubHost: string;
   path: string;
   fieldKey: string;
   value: boolean | undefined;
@@ -15,12 +14,12 @@ export function CheckboxConfigEditor({
 }) {
   const applyValue = useCallback(
     (newValue: boolean) =>
-      fetch(`http://${hubHost}${path}`, {
+      fetch(getHubHttpApiEndpoint(path), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [fieldKey]: newValue }),
       }),
-    [hubHost, path, fieldKey],
+    [path, fieldKey],
   );
 
   const handleChange = useCallback(

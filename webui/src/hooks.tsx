@@ -1,5 +1,6 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
+import { getHubHttpApiEndpoint, getHubWebSocketEndpoint } from "./utils";
 
 import {
   Button,
@@ -14,34 +15,45 @@ import {
   Shortcut,
 } from "./types";
 
-export function useWiFiSettings(
-  hubHost: string,
-): [
+type ManualSettings = {
+  ip_address: string;
+  subnet_mask: string;
+  gateway: string;
+  dns_server_1: string;
+  dns_server_2: string;
+};
+
+export function useWiFiSettings(): [
   string | undefined,
   string | undefined,
-  (ssid: string, pass: string) => Promise<void>,
+  (ssid: string, pass: string, manual?: ManualSettings) => Promise<void>,
 ] {
   const [ssid, setSsid] = useState<string>();
   const [pass, setPass] = useState<string>();
   useEffect(() => {
-    fetch(`http://${hubHost}/config/wifi`)
+    fetch(getHubHttpApiEndpoint("/config/wifi"))
       .then((res) => res.json())
       .then((data) => {
         setSsid(data.ssid);
         setPass(data.pass);
       });
-  }, [hubHost]);
+  }, []);
   const setWiFiSettings = useCallback(
-    (newSsid: string, newPass: string) =>
-      fetch(`http://${hubHost}/config/wifi`, {
+    (newSsid: string, newPass: string, manual?: ManualSettings) => {
+      const request = { ssid: newSsid.trim(), pass: newPass.trim() };
+      if (manual) {
+        Object.assign(request, manual);
+      }
+      return fetch(getHubHttpApiEndpoint("/config/wifi"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ssid: newSsid.trim(), pass: newPass.trim() }),
+        body: JSON.stringify(request),
       }).then(() => {
         setSsid(newSsid);
         setPass(newPass);
-      }),
-    [hubHost],
+      });
+    },
+    [],
   );
   return [ssid, pass, setWiFiSettings];
 }
@@ -131,7 +143,7 @@ export function useSelect(
   options: string[],
   defaultValue: string,
   placeholderLabel?: string,
-): [string, JSX.IntrinsicElements["select"]] {
+): [string, JSX.Element] {
   const [selectedValue, setSelectedValue] = useState(defaultValue);
   const optionElems = useMemo(
     () =>
@@ -158,7 +170,8 @@ export function useSelect(
     }),
     [options, placeholderLabel, selectedValue, optionElems],
   );
-  return [selectedValue, selectProps];
+  const select = useMemo(() => <select {...selectProps} />, [selectProps]);
+  return [selectedValue, select];
 }
 
 export function useShelfSelect(
@@ -354,7 +367,7 @@ type WsMessage =
 
 let handle: number | undefined = undefined;
 
-export function useKachakaButtonHub(hubHost: string) {
+export function useKachakaButtonHub() {
   const [networkState, setNetworkState] = useState<
     "offline" | "online" | "unstable"
   >("offline");
@@ -419,7 +432,7 @@ export function useKachakaButtonHub(hubHost: string) {
     setNetworkState("online");
   }, []);
 
-  const { readyState } = useWebSocket(`ws://${hubHost}/ws`, {
+  const { readyState } = useWebSocket(getHubWebSocketEndpoint(), {
     shouldReconnect: () => true,
     onMessage,
   });

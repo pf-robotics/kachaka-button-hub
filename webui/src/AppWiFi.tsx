@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, cloneElement } from "react";
 
 import { Backdrop } from "./Backdrop";
 import {
@@ -7,7 +7,8 @@ import {
   useInput,
   useSelect,
 } from "./hooks";
-import { getHubHost } from "./utils";
+import { getHubHttpApiEndpoint } from "./utils";
+import { Collapse } from "./Collapse";
 import { TopHeader } from "./TopHeader";
 import { Icon } from "./Icon";
 
@@ -15,7 +16,6 @@ import { MdError } from "react-icons/md";
 import { MdErrorOutline } from "react-icons/md";
 import { MdReplay } from "react-icons/md";
 
-const HUB_HOST = getHubHost();
 const SSID_MANUAL_INPUT = "手動入力 (非公開Wi-Fiの場合)";
 
 function checkConfusableCharacters(s: string, level: "high" | "low"): string[] {
@@ -83,13 +83,13 @@ function checkJapaneseZenkaku(s: string): string[] {
 }
 
 export function AppWiFi() {
-  const [ssid, pass, setWiFiSettings] = useWiFiSettings(HUB_HOST);
-  const { wifiApList } = useKachakaButtonHub(HUB_HOST);
+  const [ssid, pass, setWiFiSettings] = useWiFiSettings();
+  const { wifiApList } = useKachakaButtonHub();
   const [mode, setMode] = useState<
     "input" | "scanning" | "writing" | "done" | "error"
   >("input");
 
-  const [selectedSsid, ssidSelectProps] = useSelect(
+  const [selectedSsid, ssidSelect] = useSelect(
     [
       ...((Array.isArray(wifiApList) ? wifiApList : [])
         ?.map(({ ssid }) => ssid)
@@ -102,20 +102,46 @@ export function AppWiFi() {
   const ssidInput = useInput(ssid ?? "");
   const passInput = useInput(pass ?? "");
   const [showPass, setShowPass] = useState(false);
+  const [isManual, setIsManual] = useState(false);
+  const [ipAddress, setIpAddress] = useState("");
+  const [subnetMask, setSubnetMask] = useState("");
+  const [gateway, setGateway] = useState("");
+  const [dnsServer1, setDnsServer1] = useState("");
+  const [dnsServer2, setDnsServer2] = useState("");
 
   const handleSubmit = useCallback(() => {
     setMode("writing");
     setWiFiSettings(
       selectedSsid === SSID_MANUAL_INPUT ? ssidInput.value : selectedSsid,
       passInput.value,
+      isManual
+        ? {
+          ip_address: ipAddress,
+          subnet_mask: subnetMask,
+          gateway,
+          dns_server_1: dnsServer1,
+          dns_server_2: dnsServer2,
+        }
+        : undefined,
     )
       .then(() => setMode("done"))
       .catch(() => setMode("error"));
-  }, [selectedSsid, ssidInput, passInput, setWiFiSettings]);
+  }, [
+    selectedSsid,
+    ssidInput,
+    passInput,
+    isManual,
+    ipAddress,
+    subnetMask,
+    gateway,
+    dnsServer1,
+    dnsServer2,
+    setWiFiSettings,
+  ]);
 
   const handleRescan = useCallback(() => {
     setMode("scanning");
-    fetch(`http://${HUB_HOST}/wifi_scan`)
+    fetch(getHubHttpApiEndpoint("/wifi_scan"))
       .then(() => setMode("input"))
       .catch(() => setMode("error"));
   }, []);
@@ -143,7 +169,7 @@ export function AppWiFi() {
               }}
             >
               {Array.isArray(wifiApList) && wifiApList.length > 0 ? (
-                <select {...ssidSelectProps} />
+                ssidSelect
               ) : (
                 <select value="Loading" disabled>
                   <option value="Loading">
@@ -213,48 +239,101 @@ export function AppWiFi() {
                 </button>
               )}
             </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateRows: showPass ? "1fr" : "0fr",
-                transition: "grid-template-rows 0.2s",
-              }}
-            >
-              <div style={{ overflowY: "hidden" }}>
-                {checkJapaneseZenkaku(passInput.value).map((msg) => (
+            <Collapse open={showPass}>
+              {checkJapaneseZenkaku(passInput.value).map((msg) => (
+                <p key={msg} style={{ color: "red", display: "flex", gap: 4 }}>
+                  <MdError />
+                  <span style={{ flex: 1 }}>{msg}</span>
+                </p>
+              ))}
+              {(
+                [
+                  { level: "high", color: "orange" },
+                  { level: "low", color: "grey" },
+                ] as { level: "high" | "low"; color: string }[]
+              ).map(({ level, color }) =>
+                checkConfusableCharacters(passInput.value, level).map((msg) => (
                   <p
                     key={msg}
-                    style={{ color: "red", display: "flex", gap: 4 }}
+                    style={{ color: color, display: "flex", gap: 4 }}
                   >
-                    <MdError />
+                    <MdErrorOutline />
                     <span style={{ flex: 1 }}>{msg}</span>
                   </p>
-                ))}
-                {(
-                  [
-                    { level: "high", color: "orange" },
-                    { level: "low", color: "grey" },
-                  ] as { level: "high" | "low"; color: string }[]
-                ).map(({ level, color }) =>
-                  checkConfusableCharacters(passInput.value, level).map(
-                    (msg) => (
-                      <p
-                        key={msg}
-                        style={{ color: color, display: "flex", gap: 4 }}
-                      >
-                        <MdErrorOutline />
-                        <span style={{ flex: 1 }}>{msg}</span>
-                      </p>
-                    ),
-                  ),
-                )}
-              </div>
+                )),
+              )}
+            </Collapse>
+            <div style={{ display: "flex", gap: 4 }}>
+              <label style={{ display: "flex", gap: 4, padding: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={isManual}
+                  onChange={(e) => setIsManual(e.target.checked)}
+                />
+                手動設定
+              </label>
             </div>
-            <div style={{ marginTop: 4 }}>
+            <Collapse open={isManual}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  margin: 4,
+                  gap: 4,
+                }}
+              >
+                <div>
+                  <input
+                    type="text"
+                    placeholder="IPアドレス"
+                    value={ipAddress}
+                    onChange={(e) => setIpAddress(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="サブネットマスク"
+                    value={subnetMask}
+                    onChange={(e) => setSubnetMask(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="デフォルトゲートウェイ"
+                    value={gateway}
+                    onChange={(e) => setGateway(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="優先DNSサーバー"
+                    value={dnsServer1}
+                    onChange={(e) => setDnsServer1(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="代替DNSサーバー"
+                    value={dnsServer2}
+                    onChange={(e) => setDnsServer2(e.target.value)}
+                  />
+                </div>
+              </div>
+            </Collapse>
+            <div style={{ marginTop: 8 }}>
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={selectedSsid === "" || passInput.value === ""}
+                disabled={
+                  selectedSsid === "" ||
+                  passInput.value === "" ||
+                  (isManual &&
+                    (ipAddress === "" || subnetMask === "" || gateway === ""))
+                }
               >
                 書き込む
               </button>
@@ -263,9 +342,7 @@ export function AppWiFi() {
         ) : mode === "writing" ? (
           <>
             <p>書き込み中...</p>
-            <div>
-              <select {...ssidSelectProps} disabled />
-            </div>
+            <div>{cloneElement(ssidSelect, { disabled: true })}</div>
             <div>
               <input {...passInput} disabled />
             </div>

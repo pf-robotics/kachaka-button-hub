@@ -400,7 +400,7 @@ void DrawClock() {
   M5.Lcd.setTextDatum(TL_DATUM);
   M5.Lcd.setCursor(8, 3);
 
-  struct tm timeinfo {};
+  struct tm timeinfo{};
   if (!getLocalTime(&timeinfo, 10)) {
     M5.Lcd.setTextColor(kKachakaGray5, TFT_WHITE);
     M5.Lcd.print("??:??");

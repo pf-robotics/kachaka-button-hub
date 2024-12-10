@@ -170,10 +170,12 @@ enum class CommandType : uint16_t {
   LOCK = 15,
   MOVE_FORWARD = 16,
   ROTATE_IN_PLACE = 17,
+  DOCK_ANY_SHELF = 18,
 
   PROCEED = 1000,
   CANCEL_COMMAND = 1001,
   SHORTCUT = 1002,
+  SET_EMERGENCY_STOP = 1003,
 
   HTTP_GET = 2000,
   HTTP_POST = 2001,
@@ -211,6 +213,10 @@ struct Command {
     double y;
     double yaw;
   } move_to_pose;
+  struct {
+    String location_id;
+    bool dock_forward;
+  } dock_any_shelf;
   struct {
     String url;
   } http_get;

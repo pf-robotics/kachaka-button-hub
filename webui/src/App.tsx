@@ -12,12 +12,10 @@ import { Sheet } from "./Sheet";
 import { Modal } from "./Modal";
 import { SettingPage } from "./SettingPage";
 import { WiFiSignalLevel } from "./WiFiSignalLevel";
-import { getHubHost, isValidVersion, getIntVersion } from "./utils";
+import { getHubHttpApiEndpoint, isValidVersion, getIntVersion } from "./utils";
 import { Page, BottomNav } from "./BottomNav";
 import { LogList } from "./LogList";
 import { TopHeader } from "./TopHeader";
-
-const HUB_HOST = getHubHost();
 
 export function App({
   page,
@@ -34,7 +32,7 @@ export function App({
     buttons,
     commands,
     wifiRssi,
-  } = useKachakaButtonHub(HUB_HOST);
+  } = useKachakaButtonHub();
 
   const [filterredCommands, filterredButtons] = useFilteredCommandsAndButtons(
     commands,
@@ -65,7 +63,7 @@ export function App({
 
   const editCommand = useCallback((button: Button, command: Command) => {
     setProgressCount((prev) => prev + 1);
-    return fetch(`http://${HUB_HOST}/commands`, {
+    return fetch(getHubHttpApiEndpoint("/commands"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ button, command }),
@@ -75,7 +73,7 @@ export function App({
   }, []);
   const deleteCommand = useCallback((button: Button) => {
     setProgressCount((prev) => prev + 1);
-    return fetch(`http://${HUB_HOST}/commands`, {
+    return fetch(getHubHttpApiEndpoint("/commands"), {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ button }),
@@ -85,7 +83,7 @@ export function App({
   }, []);
   const setButtonName = useCallback((button: Button, name: string) => {
     setProgressCount((prev) => prev + 1);
-    return fetch(`http://${HUB_HOST}/buttons`, {
+    return fetch(getHubHttpApiEndpoint("/buttons"), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ button, name }),
@@ -95,7 +93,7 @@ export function App({
   }, []);
   const deleteButtonName = useCallback((button: Button) => {
     setProgressCount((prev) => prev + 1);
-    return fetch(`http://${HUB_HOST}/buttons`, {
+    return fetch(getHubHttpApiEndpoint("/buttons"), {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ button, name }),
@@ -105,7 +103,7 @@ export function App({
   }, []);
   const deleteLog = useCallback((path: string) => {
     setProgressCount((prev) => prev + 1);
-    return fetch(`http://${HUB_HOST}/log`, {
+    return fetch(getHubHttpApiEndpoint("/log"), {
       method: "DELETE",
       body: path,
     }).then(() => setProgressCount((prev) => prev - 1));
@@ -188,11 +186,7 @@ export function App({
           robotInfo.shelves === undefined ||
           robotInfo.locations === undefined ||
           robotInfo.shortcuts === undefined ? (
-            <InitialUi
-              hubHost={HUB_HOST}
-              robotInfo={robotInfo}
-              settings={settings}
-            />
+            <InitialUi robotInfo={robotInfo} settings={settings} />
           ) : (
             <MainCardUi
               buttons={filterredButtons}
@@ -223,10 +217,9 @@ export function App({
             onDeleteButtonName={deleteButtonName}
           />
         ) : page === "info" ? (
-          <LogList hubHost={HUB_HOST} onDelete={deleteLog} />
+          <LogList onDelete={deleteLog} />
         ) : page === "settings" ? (
           <SettingPage
-            hubHost={HUB_HOST}
             hubVersion={hubInfo?.hub_version}
             otaAvailable={hubInfo?.ota_available}
             otaLabel={hubInfo?.ota_label}

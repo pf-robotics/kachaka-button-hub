@@ -1,22 +1,21 @@
 import { useCallback } from "react";
 
 import { useInput } from "./hooks";
+import { getHubHttpApiEndpoint } from "./utils";
 
 export function RobotHostEditor({
-  hubHost,
   robotHost,
 }: {
-  hubHost: string;
   robotHost: string | undefined;
 }) {
   const setRobotHost = useCallback(
     (newRobotHost: string) =>
-      fetch(`http://${hubHost}/config/robot_host`, {
+      fetch(getHubHttpApiEndpoint("/config/robot_host"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ robot_host: newRobotHost.trim() }),
       }),
-    [hubHost],
+    [],
   );
   const robotHostInput = useInput(robotHost ?? "");
 

@@ -7,7 +7,7 @@ APP_PARTITION_SIZE=6553600  # 0x640000
 SKETCH_NAME = $(notdir $(shell pwd))
 
 
-DEVICE=/dev/ttyACM0
+DEVICE ?= /dev/ttyACM0
 
 DATA_GENERATED_FILES = data_index.css.cpp data_index.html.cpp data_index.js.cpp data_index.js.gz.cpp data_license.txt.gz.cpp
 PB_GENERATED_FILES = kachaka-api.pb.c kachaka-api.pb.h
@@ -45,7 +45,7 @@ upload:
 	arduino-cli upload -p $(DEVICE) --fqbn $(BOARD) .
 
 serial:
-	socat $(DEVICE),b115200,raw,echo=0 -
+	arduino-cli monitor -p $(DEVICE) --fqbn $(BOARD) --config 115200
 
 updatepb: $(PB_GENERATED_FILES)
 

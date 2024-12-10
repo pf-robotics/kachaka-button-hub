@@ -59,11 +59,18 @@ export function CommandText({
   if (command.type === CommandType.SPEAK) {
     return `「${command.speak.text}」と発話${command.tts_on_success ? `し、「${command.tts_on_success}」と発話` : ""}`;
   }
+  if (command.type === CommandType.DOCK_ANY_SHELF) {
+    const { location_id, dock_forward } = command.dock_any_shelf;
+    return `${lookupLocationName(location_id)}にある家具を${dock_forward ? "前向き" : "後ろ向き"}で載せる`;
+  }
   if (command.type === CommandType.PROCEED) {
     return "待機状態を解除";
   }
   if (command.type === CommandType.CANCEL_COMMAND) {
     return "実行中のコマンドをキャンセル";
+  }
+  if (command.type === CommandType.SET_EMERGENCY_STOP) {
+    return "一時停止状態にする";
   }
   if (command.type === CommandType.HTTP_GET) {
     return "GETリクエストを送信";

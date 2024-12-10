@@ -358,6 +358,32 @@ static int HandleCancelCommandResponse(struct sh2lib_handle* /* handle */,
   return 0;
 }
 
+static int HandleSetEmergencyStopResponse(struct sh2lib_handle* /* handle */,
+                                          const char* data, size_t len,
+                                          int flags) {
+  Serial.printf(" <- HandleSetEmergencyStopResponse (len=%d)\n", len);
+  CheckFlags(flags);
+
+  if (len > 0) {
+    pb_istream_t stream = pb_istream_from_buffer(
+        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
+
+    kachaka_api_SetEmergencyStopResponse response =
+        kachaka_api_SetEmergencyStopResponse_init_zero;
+
+    const int status = pb_decode(
+        &stream, kachaka_api_SetEmergencyStopResponse_fields, &response);
+    if (!status) {
+      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+      return 1;
+    }
+    Serial.printf("response = {success=%d, error_code=%d}\n",
+                  response.result.success, response.result.error_code);
+  }
+
+  return 0;
+}
+
 static bool EncodeProtoBufMessage(uint8_t* buffer, const int buffer_size,
                                   size_t* out_size, const pb_msgdesc_t* fields,
                                   const void* message) {
@@ -601,6 +627,31 @@ ResultCode Speak(const char* text, const bool cancel_all,
   return g_result_code;
 }
 
+ResultCode DockAnyShelf(const char* location_id, const bool dock_forward,
+                        const bool cancel_all, const char* tts_on_success,
+                        const bool deferrable, const LockOnEnd lock_on_end,
+                        const char* title) {
+  static Service service = {"StartCommand", HandleStartCommandResponse};
+  service.parent_task_handle = xTaskGetCurrentTaskHandle();
+
+  kachaka_api_StartCommandRequest request =
+      kachaka_api_StartCommandRequest_init_zero;
+  request.has_command = true;
+  request.command.which_command =
+      kachaka_api_Command_dock_any_shelf_with_registration_command_tag;
+  request.command.command.dock_any_shelf_with_registration_command
+      .target_location_id.funcs.encode = EncodeString;
+  request.command.command.dock_any_shelf_with_registration_command
+      .target_location_id.arg = const_cast<char*>(location_id);
+  request.command.command.dock_any_shelf_with_registration_command
+      .dock_forward = dock_forward;
+  FillCommandCommon(request, cancel_all, tts_on_success, deferrable,
+                    lock_on_end, title);
+
+  EncodeSendAndWait(service, kachaka_api_StartCommandRequest_fields, &request);
+  return g_result_code;
+}
+
 ResultCode MoveShelf(const char* shelf_id, const char* location_id,
                      const bool cancel_all, const char* tts_on_success,
                      const bool deferrable, const LockOnEnd lock_on_end,
@@ -731,6 +782,16 @@ ResultCode Proceed() {
 
 ResultCode CancelCommand() {
   static Service service = {"CancelCommand", HandleCancelCommandResponse};
+  service.parent_task_handle = xTaskGetCurrentTaskHandle();
+
+  kachaka_api_EmptyRequest request = kachaka_api_EmptyRequest_init_zero;
+
+  EncodeSendAndWait(service, kachaka_api_EmptyRequest_fields, &request);
+  return g_result_code;
+}
+
+ResultCode SetEmergencyStop() {
+  static Service service = {"SetEmergencyStop", HandleSetEmergencyStopResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
   kachaka_api_EmptyRequest request = kachaka_api_EmptyRequest_init_zero;

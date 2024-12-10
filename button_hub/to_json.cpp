@@ -114,6 +114,11 @@ String ConvertSettings(const Settings& settings) {
   JsonObject settings_json = doc.createNestedObject("settings");
   settings_json["wifi_ssid"] = settings.GetWiFiSsid();
   settings_json["robot_host"] = settings.GetRobotHost();
+  settings_json["ip_address"] = settings.GetNetworkIpAddress();
+  settings_json["subnet_mask"] = settings.GetNetworkSubnetMask();
+  settings_json["gateway"] = settings.GetNetworkGateway();
+  settings_json["dns_server_1"] = settings.GetNetworkDnsServer1();
+  settings_json["dns_server_2"] = settings.GetNetworkDnsServer2();
   settings_json["ntp_server"] = settings.GetNtpServer();
   settings_json["beep_volume"] = settings.GetBeepVolume();
   settings_json["screen_brightness"] = settings.GetScreenBrightness();
@@ -276,9 +281,16 @@ static void FillCommandJson(const Command& command, JsonObject out) {
       JsonObject speak = out.createNestedObject("speak");
       speak["text"] = command.speak.text;
     } break;
+    case CommandType::DOCK_ANY_SHELF: {
+      JsonObject dock_any_shelf = out.createNestedObject("dock_any_shelf");
+      dock_any_shelf["location_id"] = command.dock_any_shelf.location_id;
+      dock_any_shelf["dock_forward"] = command.dock_any_shelf.dock_forward;
+    } break;
     case CommandType::SHORTCUT: {
       JsonObject shortcut = out.createNestedObject("shortcut");
       shortcut["shortcut_id"] = command.shortcut.target_shortcut_id;
+    } break;
+    case CommandType::SET_EMERGENCY_STOP: {
     } break;
     case CommandType::HTTP_GET: {
       JsonObject http_get = out.createNestedObject("http_get");

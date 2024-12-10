@@ -282,9 +282,11 @@ void setup() {
 
   bluetooth::Init();
 
-  const wifi::ConnectState wifi_connect_state =
-      wifi::ConnectToWiFi(g_settings.GetWiFiSsid().c_str(),
-                          g_settings.GetWiFiPass().c_str(), 60 * 1000, true);
+  const wifi::ConnectState wifi_connect_state = wifi::ConnectToWiFi(
+      g_settings.GetWiFiSsid(), g_settings.GetWiFiPass(),
+      g_settings.GetNetworkIpAddress(), g_settings.GetNetworkSubnetMask(),
+      g_settings.GetNetworkGateway(), g_settings.GetNetworkDnsServer1(),
+      g_settings.GetNetworkDnsServer2(), 60 * 1000, true);
   if (wifi_connect_state == wifi::ConnectState::kTimeout) {
     ESP.restart();
   } else if (wifi_connect_state == wifi::ConnectState::kConnected) {
@@ -420,7 +422,6 @@ static void SetupAsWiFiClient() {
 
   g_command_table.SetButtonName(KButton(M5Button(2)), "HubボタンA");
   g_command_table.SetButtonName(KButton(M5Button(3)), "HubボタンB");
-  g_command_table.Save();
   server::EnqueueWsMessage(to_json::ConvertObservedButtons(
       g_command_table.GetObservedButtons(), g_command_table.GetButtonNames()));
 

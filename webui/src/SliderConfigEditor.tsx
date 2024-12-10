@@ -3,28 +3,27 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { debounce } from "ts-debounce";
 
 import { useRangeInput } from "./hooks";
+import { getHubHttpApiEndpoint } from "./utils";
 
 function useValue(
-  hubHost: string,
   path: string,
   fieldKey: string,
 ): [number | undefined, (volume: number) => void, (volume: number) => void] {
   const [localValue, setLocalValue] = useState<number>();
   const setRemoteValue = useCallback(
     (newValue: number) => {
-      fetch(`http://${hubHost}${path}`, {
+      fetch(getHubHttpApiEndpoint(path), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [fieldKey]: newValue }),
       });
     },
-    [hubHost, path, fieldKey],
+    [path, fieldKey],
   );
   return [localValue, setLocalValue, setRemoteValue];
 }
 
 export function SliderConfigEditor({
-  hubHost,
   path,
   fieldKey,
   value,
@@ -32,7 +31,6 @@ export function SliderConfigEditor({
   max,
   step,
 }: {
-  hubHost: string;
   path: string;
   fieldKey: string;
   value: number | undefined;
@@ -40,11 +38,7 @@ export function SliderConfigEditor({
   max: number;
   step: number;
 }) {
-  const [localValue, setLocalValue, setRemoteValue] = useValue(
-    hubHost,
-    path,
-    fieldKey,
-  );
+  const [localValue, setLocalValue, setRemoteValue] = useValue(path, fieldKey);
   const first = useRef(true);
   useEffect(() => {
     if (value !== undefined && first.current) {

@@ -8,14 +8,13 @@ import { Icon } from "./Icon";
 import { Box } from "./Box";
 import { Modal } from "./Modal";
 import { LogDownloadAll } from "./LogDownloadAll";
+import { getHubHttpApiEndpoint } from "./utils";
 
 function LogItem({
-  hubHost,
   path,
   size,
   onDelete,
 }: {
-  hubHost: string;
   path: string;
   size: number;
   onDelete: () => void;
@@ -24,14 +23,17 @@ function LogItem({
 
   const handleDownload = useCallback(
     () =>
-      window.open(`http://${hubHost}/log?path=/${path}&download=true`, "_self"),
-    [hubHost, path],
+      window.open(
+        getHubHttpApiEndpoint(`/log?path=/${path}&download=true`),
+        "_self",
+      ),
+    [path],
   );
 
   return (
     <Box style={{ display: "flex", flexDirection: "row", maxWidth: 300 }}>
       <a
-        href={`http://${hubHost}/log?path=/${path}`}
+        href={getHubHttpApiEndpoint(`/log?path=/${path}`)}
         style={{
           textDecoration: "none",
           color: "inherit",
@@ -95,19 +97,17 @@ interface LogListResponse {
 }
 
 export function LogList({
-  hubHost,
   onDelete,
 }: {
-  hubHost: string;
   onDelete: (path: string) => Promise<void>;
 }) {
   const [response, setResponse] = useState<LogListResponse>();
 
   useEffect(() => {
-    fetch(`http://${hubHost}/log`)
+    fetch(getHubHttpApiEndpoint("/log"))
       .then((res) => res.json())
       .then((data) => setResponse(data));
-  }, [hubHost]);
+  }, []);
 
   const files = useMemo(
     () => (response === undefined ? [] : Object.keys(response.files).sort()),
@@ -134,7 +134,7 @@ export function LogList({
       ) : (
         <>
           <div style={{ marginLeft: 16 }}>
-            <LogDownloadAll hubHost={hubHost} files={files} />
+            <LogDownloadAll files={files} />
           </div>
           <div style={{ display: "flex", flexFlow: "wrap row" }}>
             {Object.entries(response.files)
@@ -142,7 +142,6 @@ export function LogList({
               .map(([path, size]) => (
                 <LogItem
                   key={path}
-                  hubHost={hubHost}
                   path={path}
                   size={size}
                   onDelete={() => handleDeleteLog(path)}

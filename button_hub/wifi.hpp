@@ -18,6 +18,11 @@ enum class ConnectState {
 
 ConnectState ConnectToWiFi(const char* ssid, const char* password,
                            int timeout_millis, bool user_interaction_enabled);
+ConnectState ConnectToWiFi(const String& ssid, const String& password,
+                           const String& ip_address, const String& subnet_mask,
+                           const String& gateway, const String& dns_server_1,
+                           const String& dns_server_2, int timeout_millis,
+                           bool user_interaction_enabled);
 String GetIpAddress();
 
 // Wi-Fi AP scan

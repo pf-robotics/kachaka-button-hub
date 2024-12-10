@@ -44,9 +44,14 @@ ResultCode UndockShelf(bool cancel_all, const char* tts_on_success,
                        const char* title);
 ResultCode Speak(const char* text, bool cancel_all, const char* tts_on_success,
                  bool deferrable, LockOnEnd lock_on_end, const char* title);
+ResultCode DockAnyShelf(const char* location_id, bool dock_forward,
+                        bool cancel_all, const char* tts_on_success,
+                        bool deferrable, LockOnEnd lock_on_end,
+                        const char* title);
 ResultCode Lock(double duration_sec, const char* title);
 
 ResultCode Proceed();
 ResultCode CancelCommand();
+ResultCode SetEmergencyStop();
 
 }  // namespace api

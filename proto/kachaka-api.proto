@@ -252,6 +252,8 @@ message Command {
     LockCommand lock_command = 15;
     MoveForwardCommand move_forward_command = 16;
     RotateInPlaceCommand rotate_in_place_command = 17;
+    // DockAnyShelfWithRegistrationCommand is available only in Kachaka Pro.
+    DockAnyShelfWithRegistrationCommand dock_any_shelf_with_registration_command = 18;
   }
 }
 
@@ -303,6 +305,11 @@ message RotateInPlaceCommand {
   double angle_radian = 1;
 }
 
+message DockAnyShelfWithRegistrationCommand {
+  string target_location_id = 1;
+  bool dock_forward = 2;
+}
+
 enum CommandState {
   COMMAND_STATE_UNSPECIFIED = 0;
   COMMAND_STATE_PENDING = 1;  // No command is running. Waiting for requests.
@@ -332,10 +339,28 @@ message GetRobotPoseResponse {
   Pose pose = 2;
 }
 
+message SetRobotPoseRequest {
+  Pose pose = 1;  // required
+}
+
+message SetRobotPoseResponse {
+  Result result = 1;
+}
+
 message GetBatteryInfoResponse {
   Metadata metadata = 1;
   double remaining_percentage = 2;  // [0, 100]
   PowerSupplyStatus power_supply_status = 3;
+}
+
+message GetRobotErrorCodeJsonResponse {
+  string json = 1;
+  Result result = 2;
+}
+
+message GetErrorResponse {
+  Metadata metadata = 1;
+  repeated int32 error_codes = 2;
 }
 
 message GetPngMapResponse {
@@ -361,6 +386,11 @@ message GetRosImuResponse {
 }
 
 message GetRosOdometryResponse {
+  Metadata metadata = 1;
+  RosOdometry odometry = 2;
+}
+
+message GetRosWheelOdometryResponse {
   Metadata metadata = 1;
   RosOdometry odometry = 2;
 }
@@ -576,6 +606,18 @@ message LoadMapPreviewResponse {
   Map map = 2;
 }
 
+message SwitchMapRequest {
+  string map_id = 1;
+  Pose initial_pose = 2;  // use the charger pose if the message is empty
+
+  // Available only in Kachaka Pro. In the standard version, setting this flag to true will throw an error.
+  bool inherit_docking_state_and_docked_shelf = 3;
+}
+
+message SwitchMapResponse {
+  Result result = 1;
+}
+
 message ExportMapRequest {
   string map_id = 1;
 }
@@ -614,6 +656,7 @@ message GetShortcutsResponse {
 
 message StartShortcutCommandRequest {
   string target_shortcut_id = 1;
+  bool cancel_all = 2;
 }
 
 message StartShortcutCommandResponse {
@@ -634,17 +677,41 @@ message GetHistoryListResponse {
   repeated History histories = 2;
 }
 
+// Robot settings
+message GetSpeakerVolumeResponse {
+  Metadata metadata = 1;
+  int32 volume = 2;  // [0-10]
+}
+
+message SetSpeakerVolumeRequest {
+  int32 volume = 1;  // [0-10]
+}
+
+message SetSpeakerVolumeResponse {
+  Result result = 1;
+}
+
+message RestartRobotResponse {
+  Result result = 1;
+}
+
+message SetEmergencyStopResponse {
+  Result result = 1;
+}
+
 // Services
 service KachakaApi {
   rpc GetRobotSerialNumber (GetRequest) returns (GetRobotSerialNumberResponse);
   rpc GetRobotVersion (GetRequest) returns (GetRobotVersionResponse);
   rpc GetRobotPose (GetRequest) returns (GetRobotPoseResponse);
-  rpc GetBatteryInfo (GetRequest) returns (GetBatteryInfoResponse);
+  rpc SetRobotPose (SetRobotPoseRequest) returns (SetRobotPoseResponse);
   rpc GetPngMap (GetRequest) returns (GetPngMapResponse);
+  rpc GetBatteryInfo (GetRequest) returns (GetBatteryInfoResponse);
   rpc GetObjectDetection (GetRequest) returns (GetObjectDetectionResponse);
   rpc GetObjectDetectionFeatures (GetRequest) returns (GetObjectDetectionFeaturesResponse);
   rpc GetRosImu (GetRequest) returns (GetRosImuResponse);
   rpc GetRosOdometry (GetRequest) returns (GetRosOdometryResponse);
+  rpc GetRosWheelOdometry (GetRequest) returns (GetRosWheelOdometryResponse);
   rpc GetRosLaserScan (GetRequest) returns (GetRosLaserScanResponse);
   rpc GetFrontCameraRosCameraInfo (GetRequest) returns (GetFrontCameraRosCameraInfoResponse);
   rpc GetFrontCameraRosImage (GetRequest) returns (GetFrontCameraRosImageResponse);
@@ -655,31 +722,48 @@ service KachakaApi {
   rpc GetTofCameraRosCameraInfo (GetRequest) returns (GetTofCameraRosCameraInfoResponse);
   rpc GetTofCameraRosImage (GetRequest) returns (GetTofCameraRosImageResponse);
   rpc GetTofCameraRosCompressedImage (GetRequest) returns (GetTofCameraRosCompressedImageResponse);
+  rpc GetRobotErrorCodeJson (EmptyRequest) returns (GetRobotErrorCodeJsonResponse);
+  rpc GetError (GetRequest) returns (GetErrorResponse);
+  // Commands
   rpc StartCommand (StartCommandRequest) returns (StartCommandResponse);
   rpc CancelCommand (EmptyRequest) returns (CancelCommandResponse);
   rpc GetCommandState (GetRequest) returns (GetCommandStateResponse);
   rpc GetLastCommandResult (GetRequest) returns (GetLastCommandResultResponse);
   rpc Proceed (EmptyRequest) returns (ProceedResponse);
+  // Locations
   rpc GetLocations (GetRequest) returns (GetLocationsResponse);
+  // Shelves
   rpc GetShelves (GetRequest) returns (GetShelvesResponse);
   rpc GetMovingShelfId (GetRequest) returns (GetMovingShelfIdResponse);
   rpc ResetShelfPose (ResetShelfPoseRequest) returns (ResetShelfPoseResponse);
+  // Auto homing
   rpc SetAutoHomingEnabled (SetAutoHomingEnabledRequest) returns (SetAutoHomingEnabledResponse);
   rpc GetAutoHomingEnabled (GetRequest) returns (GetAutoHomingEnabledResponse);
+  // Teleop
   rpc SetManualControlEnabled (SetManualControlEnabledRequest) returns (SetManualControlEnabledResponse);
   rpc GetManualControlEnabled (GetRequest) returns (GetManualControlEnabledResponse);
   rpc SetFrontTorchIntensity (SetFrontTorchIntensityRequest) returns (SetFrontTorchIntensityResponse);
   rpc SetBackTorchIntensity (SetBackTorchIntensityRequest) returns (SetBackTorchIntensityResponse);
   rpc SetRobotVelocity (SetRobotVelocityRequest) returns (SetRobotVelocityResponse);
   rpc ActivateLaserScan (ActivateLaserScanRequest) returns (ActivateLaserScanResponse);
+  // Map
   rpc GetMapList (GetRequest) returns (GetMapListResponse);
   rpc GetCurrentMapId (GetRequest) returns (GetCurrentMapIdResponse);
   rpc LoadMapPreview (LoadMapPreviewRequest) returns (LoadMapPreviewResponse);
+  rpc SwitchMap (SwitchMapRequest) returns (SwitchMapResponse);
   rpc ExportMap (ExportMapRequest) returns (stream ExportMapResponse);
   rpc ImportMap (stream ImportMapRequest) returns (ImportMapResponse);
+  // Shortcut
   rpc GetShortcuts (GetRequest) returns (GetShortcutsResponse);
   rpc StartShortcutCommand (StartShortcutCommandRequest) returns (StartShortcutCommandResponse);
+  // History
   rpc GetHistoryList (GetRequest) returns (GetHistoryListResponse);
+  // Robot settings
+  rpc GetSpeakerVolume (GetRequest) returns (GetSpeakerVolumeResponse);
+  rpc SetSpeakerVolume (SetSpeakerVolumeRequest) returns (SetSpeakerVolumeResponse);
+  rpc RestartRobot (EmptyRequest) returns (RestartRobotResponse);
+  rpc SetEmergencyStop (EmptyRequest) returns (SetEmergencyStopResponse);
+  // Transform
   rpc GetStaticTransform (GetRequest) returns (GetStaticTransformResponse);
   rpc GetDynamicTransform (EmptyRequest) returns (stream GetDynamicTransformResponse);
 }

@@ -5,16 +5,15 @@ import { CheckboxConfigEditor } from "./CheckboxConfigEditor";
 import { SliderConfigEditor } from "./SliderConfigEditor";
 import { ButtonWithConfirmation } from "./ButtonWithConfirmation";
 import { Settings } from "./types";
+import { getHubHttpApiEndpoint } from "./utils";
 
 export function SettingPage({
-  hubHost,
   hubVersion,
   otaAvailable,
   otaLabel,
   settings,
   robotHost,
 }: {
-  hubHost: string;
   hubVersion: string | undefined;
   otaAvailable: boolean | undefined;
   otaLabel: string | undefined;
@@ -22,12 +21,12 @@ export function SettingPage({
   robotHost: string | undefined;
 }) {
   const triggerReboot = () => {
-    fetch(`http://${hubHost}/reboot`).then(() => {
+    fetch(getHubHttpApiEndpoint("/reboot")).then(() => {
       window.location.hash = "#reboot";
     });
   };
   const handleManualOta = () => {
-    fetch(`http://${hubHost}/config/one_shot_auto_ota_is_enabled`, {
+    fetch(getHubHttpApiEndpoint("/config/one_shot_auto_ota_is_enabled"), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ one_shot_auto_ota_is_enabled: true }),
@@ -42,7 +41,7 @@ export function SettingPage({
   const [desiredHubVersion, setDesiredHubVersion] = useState<string>();
   const [otaIsRequired, setOtaIsRequired] = useState<boolean>();
   useEffect(() => {
-    fetch(`http://${hubHost}/ota/desired_hub_version`)
+    fetch(getHubHttpApiEndpoint("/ota/desired_hub_version"))
       .then((res) => res.json())
       .then((res) => {
         if (res.success) {
@@ -53,16 +52,15 @@ export function SettingPage({
           setOtaIsRequired(false);
         }
       });
-  }, [hubHost]);
+  }, []);
 
   return (
     <div style={{ position: "relative", maxWidth: 540, alignSelf: "center" }}>
       <h3>カチャカのシリアル番号・IPアドレス</h3>
-      <RobotHostEditor hubHost={hubHost} robotHost={robotHost} />
+      <RobotHostEditor robotHost={robotHost} />
 
       <h3>音量</h3>
       <SliderConfigEditor
-        hubHost={hubHost}
         path="/config/beep_volume"
         fieldKey="beep_volume"
         value={settings?.beep_volume}
@@ -73,7 +71,6 @@ export function SettingPage({
 
       <h3>画面の輝度</h3>
       <SliderConfigEditor
-        hubHost={hubHost}
         path="/config/screen_brightness"
         fieldKey="screen_brightness"
         value={settings?.screen_brightness}
@@ -84,14 +81,12 @@ export function SettingPage({
 
       <h3>詳細設定</h3>
       <CheckboxConfigEditor
-        hubHost={hubHost}
         path="/config/auto_refetch_on_ui_load"
         fieldKey="auto_refetch_on_ui_load"
         value={settings?.auto_refetch_on_ui_load}
         label="カチャカボタンHub画面をリロードすると家具・目的地の情報をカチャカから再取得する（実験的機能）"
       />
       <CheckboxConfigEditor
-        hubHost={hubHost}
         path="/config/gpio_button_is_enabled"
         fieldKey="gpio_button_is_enabled"
         value={settings?.gpio_button_is_enabled}
@@ -113,7 +108,6 @@ export function SettingPage({
             }}
           >
             <CheckboxConfigEditor
-              hubHost={hubHost}
               path="/config/auto_ota_is_enabled"
               fieldKey="auto_ota_is_enabled"
               value={settings?.auto_ota_is_enabled}
@@ -168,7 +162,7 @@ export function SettingPage({
       <h3>データの初期化</h3>
       <ButtonWithConfirmation
         onClick={() =>
-          fetch(`http://${hubHost}/clear_all_data`).then(() => {
+          fetch(getHubHttpApiEndpoint("/clear_all_data")).then(() => {
             window.location.hash = "#reboot-apply";
           })
         }

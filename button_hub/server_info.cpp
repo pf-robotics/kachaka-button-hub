@@ -46,6 +46,11 @@ void HandleGetWiFi(AsyncWebServerRequest* request) {
   JsonDocument doc;
   doc["ssid"] = g_settings.GetWiFiSsid();
   doc["pass"] = g_settings.GetWiFiPass();
+  doc["ip_address"] = g_settings.GetNetworkIpAddress();
+  doc["subnet_mask"] = g_settings.GetNetworkSubnetMask();
+  doc["gateway"] = g_settings.GetNetworkGateway();
+  doc["dns_server_1"] = g_settings.GetNetworkDnsServer1();
+  doc["dns_server_2"] = g_settings.GetNetworkDnsServer2();
   String out;
   serializeJson(doc, out);
   request->send(200, "text/json; charset=utf-8", out);
@@ -64,10 +69,18 @@ void HandleSetWiFi(AsyncWebServerRequest* request, const String& body) {
     request->send(400, "text/plain", "Bad Request");
     return;
   }
-  const String& ssid = doc["ssid"].as<String>();
-  g_settings.SetWiFiSsid(ssid.c_str());
-  const String& pass = doc["pass"].as<String>();
-  g_settings.SetWiFiPass(pass.c_str());
+  g_settings.SetWiFiSsid(doc["ssid"].as<String>());
+  g_settings.SetWiFiPass(doc["pass"].as<String>());
+  g_settings.SetNetworkIpAddress(
+      doc.containsKey("ip_address") ? doc["ip_address"].as<String>() : "");
+  g_settings.SetNetworkSubnetMask(
+      doc.containsKey("subnet_mask") ? doc["subnet_mask"].as<String>() : "");
+  g_settings.SetNetworkGateway(
+      doc.containsKey("gateway") ? doc["gateway"].as<String>() : "");
+  g_settings.SetNetworkDnsServer1(
+      doc.containsKey("dns_server_1") ? doc["dns_server_1"].as<String>() : "");
+  g_settings.SetNetworkDnsServer2(
+      doc.containsKey("dns_server_2") ? doc["dns_server_2"].as<String>() : "");
 
   server::EnqueueWsMessage(to_json::ConvertSettings(g_settings));
 

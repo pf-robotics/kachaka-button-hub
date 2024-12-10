@@ -153,11 +153,21 @@ bool SendCommand(const RobotInfoHolder& robot_info, const Command& command) {
                      command.tts_on_success.c_str(), command.deferrable,
                      lock_on_end, GenerateTitle(robot_info, command).c_str());
       break;
+    case CommandType::DOCK_ANY_SHELF:
+      result = api::DockAnyShelf(
+          command.dock_any_shelf.location_id.c_str(),
+          command.dock_any_shelf.dock_forward, command.cancel_all,
+          command.tts_on_success.c_str(), command.deferrable, lock_on_end,
+          GenerateTitle(robot_info, command).c_str());
+      break;
     case CommandType::PROCEED:
       result = api::Proceed();
       break;
     case CommandType::CANCEL_COMMAND:
       result = api::CancelCommand();
+      break;
+    case CommandType::SET_EMERGENCY_STOP:
+      result = api::SetEmergencyStop();
       break;
     case CommandType::HTTP_GET:
       FetchHttp(HttpMethod::GET, command.http_get.url, "");

@@ -38,8 +38,10 @@ export function SheetRow({
     returnHome,
     shortcut,
     speak,
+    dockAnyShelf,
     cancelCommand,
     proceed,
+    setEmergencyStop,
     httpGet,
     httpPost,
     cancelAllInput,
@@ -116,6 +118,7 @@ export function SheetRow({
           <option value={CommandType.UNDOCK_SHELF}>
             持っている家具をその場に置く
           </option>
+          <option value={CommandType.DOCK_ANY_SHELF}>場所にある家具を載せる</option>
           <option value={CommandType.MOVE_TO_LOCATION}>移動</option>
           <option value={CommandType.RETURN_HOME}>充電ドックに戻る</option>
           {enableShortcutFeature && (
@@ -125,6 +128,9 @@ export function SheetRow({
           )}
           <option value={CommandType.SPEAK}>発話</option>
           <option value={CommandType.CANCEL_COMMAND}>コマンドキャンセル</option>
+          <option value={CommandType.SET_EMERGENCY_STOP}>
+            一時停止状態にする
+          </option>
           <option value={CommandType.PROCEED}>待機状態を解除</option>
           <option value={CommandType.HTTP_GET}>HTTP GET</option>
           <option value={CommandType.HTTP_POST}>HTTP POST</option>
@@ -134,12 +140,16 @@ export function SheetRow({
         <ShowIf type={CommandType.MOVE_SHELF}>{moveShelf}</ShowIf>
         <ShowIf type={CommandType.RETURN_SHELF}>{returnShelf}</ShowIf>
         <ShowIf type={CommandType.UNDOCK_SHELF}>{undockShelf}</ShowIf>
+        <ShowIf type={CommandType.DOCK_ANY_SHELF}>{dockAnyShelf}</ShowIf>
         <ShowIf type={CommandType.MOVE_TO_LOCATION}>{moveToLocation}</ShowIf>
         <ShowIf type={CommandType.RETURN_HOME}>{returnHome}</ShowIf>
         <ShowIf type={CommandType.SHORTCUT}>{shortcut}</ShowIf>
         <ShowIf type={CommandType.SPEAK}>{speak}</ShowIf>
         <ShowIf type={CommandType.CANCEL_COMMAND}>{cancelCommand}</ShowIf>
         <ShowIf type={CommandType.PROCEED}>{proceed}</ShowIf>
+        <ShowIf type={CommandType.SET_EMERGENCY_STOP}>
+          {setEmergencyStop}
+        </ShowIf>
         <ShowIf type={CommandType.HTTP_GET}>{httpGet}</ShowIf>
         <ShowIf type={CommandType.HTTP_POST}>{httpPost}</ShowIf>
       </td>

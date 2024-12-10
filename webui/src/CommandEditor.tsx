@@ -80,8 +80,10 @@ export function CommandEditor({
     returnHome,
     shortcut,
     speak,
+    dockAnyShelf,
     cancelCommand,
     proceed,
+    setEmergencyStop,
     httpGet,
     httpPost,
     cancelAllInput,
@@ -127,6 +129,13 @@ export function CommandEditor({
           onSelect={() => setSelectedCommandType(CommandType.UNDOCK_SHELF)}
         >
           {undockShelf}
+        </Item>
+        <Item
+          commandType={CommandType.DOCK_ANY_SHELF}
+          command={newCommand}
+          onSelect={() => setSelectedCommandType(CommandType.DOCK_ANY_SHELF)}
+        >
+          {dockAnyShelf}
         </Item>
         <Item
           commandType={CommandType.MOVE_TO_LOCATION}
@@ -175,6 +184,15 @@ export function CommandEditor({
             {proceed}
           </Item>
         )}
+        <Item
+          commandType={CommandType.SET_EMERGENCY_STOP}
+          command={newCommand}
+          onSelect={() =>
+            setSelectedCommandType(CommandType.SET_EMERGENCY_STOP)
+          }
+        >
+          {setEmergencyStop}
+        </Item>
         <Item
           commandType={CommandType.HTTP_GET}
           command={newCommand}

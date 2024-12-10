@@ -149,9 +149,11 @@ export enum CommandType {
   LOCK = 15,
   MOVE_FORWARD = 16,
   ROTATE_IN_PLACE = 17,
+  DOCK_ANY_SHELF = 18,
   PROCEED = 1000,
   CANCEL_COMMAND = 1001,
   SHORTCUT = 1002,
+  SET_EMERGENCY_STOP = 1003,
   HTTP_GET = 2000,
   HTTP_POST = 2001,
 }
@@ -207,12 +209,24 @@ export type SpeakCommand = {
   };
 } & CommandBase;
 
+export type DockAnyShelfCommand = {
+  type: CommandType.DOCK_ANY_SHELF;
+  dock_any_shelf: {
+    location_id: string;
+    dock_forward: boolean;
+  };
+} & CommandBase;
+
 export type ProceedCommand = {
   type: CommandType.PROCEED;
 } & CommandBase;
 
 export type CancelCommandCommand = {
   type: CommandType.CANCEL_COMMAND;
+} & CommandBase;
+
+export type SetEmergencyStopCommandCommand = {
+  type: CommandType.SET_EMERGENCY_STOP;
 } & CommandBase;
 
 export type HttpGetCommand = {
@@ -238,7 +252,9 @@ export type Command =
   | ReturnHomeCommand
   | ShortcutCommand
   | SpeakCommand
+  | DockAnyShelfCommand
   | ProceedCommand
   | CancelCommandCommand
+  | SetEmergencyStopCommandCommand
   | HttpGetCommand
   | HttpPostCommand;

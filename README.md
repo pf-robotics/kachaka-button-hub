@@ -16,8 +16,6 @@ Ensure you have the following tools and libraries installed:
     - Install with the command: `sudo apt-get install protobuf-compiler`
 - Python Virtual Environment and pyserial
     - Install with the command: `sudo apt-get install python3-serial python3-venv`
-- socat
-    - Install with the command: `sudo apt-get install socat`
 - npm (Node.js)
     - Download and install from the [Node.js website](https://nodejs.org/)
 - Arduino CLI

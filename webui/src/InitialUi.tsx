@@ -2,6 +2,7 @@ import { useCallback } from "react";
 
 import { RobotHostEditor } from "./RobotHostEditor";
 import { RobotInfo, Settings } from "./types";
+import { getHubHttpApiEndpoint } from "./utils";
 
 import { MdCheckCircle } from "react-icons/md";
 
@@ -18,19 +19,17 @@ export function CheckMark() {
 }
 
 export function InitialUi({
-  hubHost,
   robotInfo,
   settings,
 }: {
-  hubHost: string;
   robotInfo: RobotInfo | undefined;
   settings: Settings | undefined;
 }) {
   const handleReboot = useCallback(() => {
-    fetch(`http://${hubHost}/reboot`).then(() => {
+    fetch(getHubHttpApiEndpoint("/reboot")).then(() => {
       window.location.hash = "#reboot";
     });
-  }, [hubHost]);
+  }, []);
 
   return (
     <div
@@ -105,10 +104,7 @@ export function InitialUi({
         </li>
       </ul>
       <h2>カチャカのシリアル番号・IPアドレス</h2>
-      <RobotHostEditor
-        hubHost={hubHost}
-        robotHost={settings?.robot_host ?? ""}
-      />
+      <RobotHostEditor robotHost={settings?.robot_host ?? ""} />
     </div>
   );
 }

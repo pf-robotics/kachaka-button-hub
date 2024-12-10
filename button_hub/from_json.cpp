@@ -158,6 +158,26 @@ bool ConvertCommandJson(JsonObject& root, KButton& out_button,
       out_command.lock_duration_sec = lock_duration_sec;
       break;
     }
+    case static_cast<int>(CommandType::DOCK_ANY_SHELF): {
+      if (!command.containsKey("dock_any_shelf")) {
+        Serial.println("ERROR: Invalid JSON");
+        return false;
+      }
+      const JsonObject& dock_any_shelf = command["dock_any_shelf"];
+      if (!dock_any_shelf.containsKey("location_id") ||
+          !dock_any_shelf.containsKey("dock_forward")) {
+        Serial.println("ERROR: Invalid JSON");
+        return false;
+      }
+      out_command.type = CommandType::DOCK_ANY_SHELF;
+      out_command.dock_any_shelf = {dock_any_shelf["location_id"],
+                                    dock_any_shelf["dock_forward"]};
+      out_command.cancel_all = cancel_all;
+      out_command.tts_on_success = std::move(tts_on_success);
+      out_command.deferrable = deferrable;
+      out_command.lock_duration_sec = lock_duration_sec;
+      break;
+    }
     case static_cast<int>(CommandType::PROCEED): {
       out_command.type = CommandType::PROCEED;
       out_command.cancel_all = false;
@@ -168,6 +188,14 @@ bool ConvertCommandJson(JsonObject& root, KButton& out_button,
     }
     case static_cast<int>(CommandType::CANCEL_COMMAND): {
       out_command.type = CommandType::CANCEL_COMMAND;
+      out_command.cancel_all = false;
+      out_command.tts_on_success.clear();
+      out_command.deferrable = false;
+      out_command.lock_duration_sec = 0.0;
+      break;
+    }
+    case static_cast<int>(CommandType::SET_EMERGENCY_STOP): {
+      out_command.type = CommandType::SET_EMERGENCY_STOP;
       out_command.cancel_all = false;
       out_command.tts_on_success.clear();
       out_command.deferrable = false;

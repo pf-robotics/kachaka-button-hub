@@ -1,6 +1,46 @@
-export function getHubHost() {
+function getHubHost() {
   const ENV_API_HOST = import.meta.env.VITE_API_HOST;
   return ENV_API_HOST ?? window.document.location.hostname;
+}
+
+function isApiHostEnvIsProvided() {
+  return import.meta.env.VITE_API_HOST !== undefined;
+}
+
+function getHubPort(): number | undefined {
+  const port = Number.parseInt(window.document.location.port, 10);
+  if (Number.isNaN(port)) {
+    return undefined;
+  }
+  return port;
+}
+
+export function getHubHttpApiEndpoint(path: string | undefined) {
+  const hubHost = getHubHost();
+  const hubPort = getHubPort();
+  const url = new URL(`http://${hubHost}`);
+  if (isApiHostEnvIsProvided()) {
+    url.port = ""; // for `npm run dev` to work
+  } else if (hubPort !== undefined) {
+    url.port = hubPort.toString();
+  }
+  if (path !== undefined) {
+    url.pathname = path;
+  }
+  return url.href;
+}
+
+export function getHubWebSocketEndpoint() {
+  const hubHost = getHubHost();
+  const hubPort = getHubPort();
+  const url = new URL(`ws://${hubHost}`);
+  if (isApiHostEnvIsProvided()) {
+    url.port = ""; // for `npm run dev` to work
+  } else if (hubPort !== undefined) {
+    url.port = hubPort.toString(); // for port forwarding
+  }
+  url.pathname = "/ws";
+  return url.href;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

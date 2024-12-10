@@ -6,6 +6,7 @@ import {
   useInput,
   useLocationSelect,
   useNumberInput,
+  useSelect,
   useShelfSelect,
   useShortcutSelect,
   useTextArea,
@@ -21,38 +22,54 @@ export function useCommandEditor(
     robotInfo?.locations ?? [],
     command.type === CommandType.MOVE_SHELF
       ? command.move_shelf.location_id
-      : robotInfo?.locations?.[0]?.id ?? "",
+      : (robotInfo?.locations?.[0]?.id ?? ""),
     /* excludeCharger= */ true,
   );
   const [moveShelfShelfId, moveShelfShelfSelect] = useShelfSelect(
     robotInfo?.shelves ?? [],
     command.type === CommandType.MOVE_SHELF
       ? command.move_shelf.shelf_id
-      : robotInfo?.shelves?.[0]?.id ?? "",
+      : (robotInfo?.shelves?.[0]?.id ?? ""),
   );
   const [returnShelfShelfId, returnShelfShelfSelect] = useShelfSelect(
     robotInfo?.shelves ?? [],
     command.type === CommandType.RETURN_SHELF
       ? command.return_shelf.shelf_id
-      : robotInfo?.shelves?.[0]?.id ?? "",
+      : (robotInfo?.shelves?.[0]?.id ?? ""),
     [{ value: "", label: "持っている家具" }],
   );
   const [shortcutId, shortcutIdSelect] = useShortcutSelect(
     robotInfo?.shortcuts ?? [],
     command.type === CommandType.SHORTCUT
       ? command.shortcut.shortcut_id
-      : robotInfo?.shortcuts?.[0]?.id ?? "",
+      : (robotInfo?.shortcuts?.[0]?.id ?? ""),
   );
   const [moveToLocationLocationId, moveToLocationLocationSelect] =
     useLocationSelect(
       robotInfo?.locations ?? [],
       command.type === CommandType.MOVE_TO_LOCATION
         ? command.move_to_location.location_id
-        : robotInfo?.locations?.[0]?.id ?? "",
+        : (robotInfo?.locations?.[0]?.id ?? ""),
       /* excludeCharger= */ true,
     );
   const speakInput = useInput(
     command.type === CommandType.SPEAK ? command.speak.text : "",
+  );
+  const [dockAnyShelfLocationId, dockAnyShelfLocationSelect] =
+    useLocationSelect(
+      robotInfo?.locations ?? [],
+      command.type === CommandType.DOCK_ANY_SHELF
+        ? command.dock_any_shelf.location_id
+        : (robotInfo?.locations?.[0]?.id ?? ""),
+      /* excludeCharger= */ true,
+    );
+  const [dockAnyShelfDockForward, dockAnyShelfDockForwardSelect] = useSelect(
+    ["前向き", "後向き"],
+    command.type === CommandType.DOCK_ANY_SHELF
+      ? command.dock_any_shelf.dock_forward
+        ? "前向き"
+        : "後向き"
+      : "後向き",
   );
   const httpGetUrlInput = useInput(
     command.type === CommandType.HTTP_GET ? command.http_get.url : "",
@@ -133,6 +150,16 @@ export function useCommandEditor(
           },
         };
         break;
+      case CommandType.DOCK_ANY_SHELF:
+        out = {
+          ...out,
+          type: CommandType.DOCK_ANY_SHELF,
+          dock_any_shelf: {
+            location_id: dockAnyShelfLocationId ?? "",
+            dock_forward: dockAnyShelfDockForward === "前向き",
+          },
+        };
+        break;
       case CommandType.PROCEED:
         out = {
           ...out,
@@ -143,6 +170,12 @@ export function useCommandEditor(
         out = {
           ...out,
           type: CommandType.CANCEL_COMMAND,
+        };
+        break;
+      case CommandType.SET_EMERGENCY_STOP:
+        out = {
+          ...out,
+          type: CommandType.SET_EMERGENCY_STOP,
         };
         break;
       case CommandType.HTTP_GET:
@@ -191,6 +224,8 @@ export function useCommandEditor(
     moveToLocationLocationId,
     shortcutId,
     speakInput.value,
+    dockAnyShelfLocationId,
+    dockAnyShelfDockForward,
     httpGetUrlInput.value,
     httpPostUrlInput.value,
     httpPostBodyInput.value,
@@ -229,8 +264,15 @@ export function useCommandEditor(
         と発話
       </>
     ),
+    dockAnyShelf: (
+      <>
+        {dockAnyShelfLocationSelect} にある家具を{" "}
+        {dockAnyShelfDockForwardSelect} で載せる
+      </>
+    ),
     cancelCommand: <>実行中のコマンドをキャンセル</>,
     proceed: <>待機状態を解除</>,
+    setEmergencyStop: <>一時停止状態にする</>,
     httpGet: (
       <>
         <input

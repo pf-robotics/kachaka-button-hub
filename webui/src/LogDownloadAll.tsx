@@ -5,12 +5,11 @@ import JSZip from "jszip";
 import { MdFileDownload } from "react-icons/md";
 
 import { Icon } from "./Icon";
+import { getHubHttpApiEndpoint } from "./utils";
 
 export function LogDownloadAll({
-  hubHost,
   files,
 }: {
-  hubHost: string;
   files: string[];
 }) {
   const [progress, setProgress] = useState<number | undefined>();
@@ -32,7 +31,7 @@ export function LogDownloadAll({
       }
       const path = files[i];
       setProgress((i / files.length) * 100);
-      fetch(`http://${hubHost}/log?path=/${path}`)
+      fetch(getHubHttpApiEndpoint(`/log?path=/${path}`))
         .then((res) => res.blob())
         .then((blob) => {
           zip.file(path, blob);
@@ -40,7 +39,7 @@ export function LogDownloadAll({
         });
     };
     fetchNext(0);
-  }, [hubHost, files]);
+  }, [files]);
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
