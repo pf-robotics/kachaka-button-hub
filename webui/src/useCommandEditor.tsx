@@ -23,7 +23,6 @@ export function useCommandEditor(
     command.type === CommandType.MOVE_SHELF
       ? command.move_shelf.location_id
       : (robotInfo?.locations?.[0]?.id ?? ""),
-    /* excludeCharger= */ true,
   );
   const [moveShelfShelfId, moveShelfShelfSelect] = useShelfSelect(
     robotInfo?.shelves ?? [],
@@ -50,7 +49,6 @@ export function useCommandEditor(
       command.type === CommandType.MOVE_TO_LOCATION
         ? command.move_to_location.location_id
         : (robotInfo?.locations?.[0]?.id ?? ""),
-      /* excludeCharger= */ true,
     );
   const speakInput = useInput(
     command.type === CommandType.SPEAK ? command.speak.text : "",
@@ -61,7 +59,6 @@ export function useCommandEditor(
       command.type === CommandType.DOCK_ANY_SHELF
         ? command.dock_any_shelf.location_id
         : (robotInfo?.locations?.[0]?.id ?? ""),
-      /* excludeCharger= */ true,
     );
   const [dockAnyShelfDockForward, dockAnyShelfDockForwardSelect] = useSelect(
     ["前向き", "後向き"],

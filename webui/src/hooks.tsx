@@ -223,21 +223,18 @@ export function useShelfSelect(
 export function useLocationSelect(
   locations: Location[],
   defaultValue: string,
-  excludeCharger = false,
 ): [string | undefined, JSX.Element] {
   const [selectedLocationId, setSelectedLocationId] = useState<
     string | undefined
   >(defaultValue);
   const options = useMemo(
     () =>
-      locations
-        .filter((location) => !excludeCharger || location.type !== "charger")
-        .map((location) => (
-          <option key={location.id} value={location.id}>
-            {location.name}
-          </option>
-        )),
-    [locations, excludeCharger],
+      locations.map((location) => (
+        <option key={location.id} value={location.id}>
+          {location.name}
+        </option>
+      )),
+    [locations],
   );
   const isKnownId = (locations ?? [])
     .map((location) => location.id)

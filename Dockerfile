@@ -17,7 +17,7 @@ RUN arduino-cli lib install \
         ESPAsyncWebServer \
         ESPping \
         M5Unified \
-        NimBLE-Arduino \
+        NimBLE-Arduino@1.4.3 \
         TickTwo
 
 RUN apt-get update

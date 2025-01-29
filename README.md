@@ -37,7 +37,7 @@ Install the necessary core and libraries for Arduino:
 
 ```bash
 arduino-cli core install m5stack:esp32 --additional-urls https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/arduino/package_m5stack_index.json
-arduino-cli lib install ArduinoJson ESPAsyncWebServer ESPping M5Unified NimBLE-Arduino TickTwo
+arduino-cli lib install ArduinoJson ESPAsyncWebServer ESPping M5Unified NimBLE-Arduino@1.4.3 TickTwo
 ```
 
 #### Add Nanopb to Arduino Library
