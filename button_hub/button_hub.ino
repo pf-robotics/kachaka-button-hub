@@ -70,22 +70,42 @@ static void BeaconCallback(const char* name, const uint8_t address[6],
   if (!IsBraveridgeBeacon(uuid)) {
     return;
   }
+
+  const KButton button(AppleIBeacon(address, uuid, major, minor));
+  bool accept = true;
+  {
+    const time_t now = time(nullptr);
+    const auto it = g_last_beacon_time.find(button);
+    if (it != g_last_beacon_time.end()) {
+      const int diff = now - it->second;
+      if (diff < kButtonIgnoreDurationSec) {
+        accept = false;
+      }
+    }
+    if (accept) {
+      g_last_beacon_time[button] = now;
+    }
+  }
+
   char beacon_str[128];
   snprintf(
       beacon_str, sizeof(beacon_str),
-      "Beacon ==> %s "
+      "==> %s "
       "%02x:%02x:%02x:%02x:%02x:%02x, "
       "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x, "
-      "%04x, %04x, %d, %d",
+      "%04x, %04x, %d, %d%s",
       name, address[0], address[1], address[2], address[3], address[4],
       address[5], uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6],
       uuid[7], uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13],
-      uuid[14], uuid[15], major, minor, tx_power, rssi);
+      uuid[14], uuid[15], major, minor, tx_power, rssi,
+      accept ? "" : " (ignored)");
   logging::Log("Beacon: %s", beacon_str);
 
-  const double estimated_distance = std::pow(10.0, (tx_power - rssi) / 20.0);
+  if (!accept) {
+    return;
+  }
 
-  const KButton button(AppleIBeacon(address, uuid, major, minor));
+  const double estimated_distance = std::pow(10.0, (tx_power - rssi) / 20.0);
 
   if (const kb::LockGuard lock(g_button_queue_mutex); lock) {
     g_button_queue.emplace_back(button, estimated_distance);
@@ -96,18 +116,6 @@ static void BeaconCallback(const char* name, const uint8_t address[6],
 
 static void HandleButtonPressed(const KButton& button,
                                 const double estimated_distance) {
-  if (button.type == ButtonType::kAppleIBeacon) {
-    const time_t now = time(nullptr);
-    const auto it = g_last_beacon_time.find(button);
-    if (it != g_last_beacon_time.end()) {
-      const int diff = now - it->second;
-      if (diff < kButtonIgnoreDurationSec) {
-        return;
-      }
-    }
-    g_last_beacon_time[button] = now;
-  }
-
   g_command_table.NotifyObservedButton(button, estimated_distance);
   server::EnqueueWsMessage(to_json::ConvertObservedButtons(
       g_command_table.GetObservedButtons(), g_command_table.GetButtonNames()));

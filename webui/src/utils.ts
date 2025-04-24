@@ -15,7 +15,10 @@ function getHubPort(): number | undefined {
   return port;
 }
 
-export function getHubHttpApiEndpoint(path: string | undefined) {
+export function getHubHttpApiEndpoint(
+  path: string | undefined,
+  search?: Record<string, string>,
+) {
   const hubHost = getHubHost();
   const hubPort = getHubPort();
   const url = new URL(`http://${hubHost}`);
@@ -26,6 +29,11 @@ export function getHubHttpApiEndpoint(path: string | undefined) {
   }
   if (path !== undefined) {
     url.pathname = path;
+  }
+  if (search) {
+    for (const [key, value] of Object.entries(search)) {
+      url.searchParams.append(key, value);
+    }
   }
   return url.href;
 }

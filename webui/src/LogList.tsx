@@ -24,7 +24,7 @@ function LogItem({
   const handleDownload = useCallback(
     () =>
       window.open(
-        getHubHttpApiEndpoint(`/log?path=/${path}&download=true`),
+        getHubHttpApiEndpoint("/log", { path: `/${path}`, download: "true" }),
         "_self",
       ),
     [path],
@@ -33,7 +33,7 @@ function LogItem({
   return (
     <Box style={{ display: "flex", flexDirection: "row", maxWidth: 300 }}>
       <a
-        href={getHubHttpApiEndpoint(`/log?path=/${path}`)}
+        href={getHubHttpApiEndpoint("/log", { path: `/${path}` })}
         style={{
           textDecoration: "none",
           color: "inherit",

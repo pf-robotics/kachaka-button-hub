@@ -31,7 +31,7 @@ export function LogDownloadAll({
       }
       const path = files[i];
       setProgress((i / files.length) * 100);
-      fetch(getHubHttpApiEndpoint(`/log?path=/${path}`))
+      fetch(getHubHttpApiEndpoint("/log", { path: `/${path}` }))
         .then((res) => res.blob())
         .then((blob) => {
           zip.file(path, blob);
