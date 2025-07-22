@@ -10,6 +10,7 @@ export function SheetRow({
   button,
   command,
   robotInfo,
+  noKachakaMode,
   recentlyPressed,
   enableShortcutFeature,
   onEdit,
@@ -21,6 +22,7 @@ export function SheetRow({
   button: Button;
   command: Command;
   robotInfo: RobotInfo | undefined;
+  noKachakaMode?: boolean;
   recentlyPressed: boolean;
   enableShortcutFeature: boolean;
   onEdit: (button: Button, command: Command) => void;
@@ -50,6 +52,7 @@ export function SheetRow({
     lockDurationSecInput,
     modified,
     disableOptions,
+    enableCancelAll,
     disableShortcut,
   } = useCommandEditor(command, selectedCommandType, robotInfo);
   const handleEdit = useCallback(
@@ -61,7 +64,10 @@ export function SheetRow({
     backgroundColor: modified ? "var(--coral-pink0)" : undefined,
   };
   const optProps: React.HTMLProps<HTMLTableCellElement> = {
-    style: { visibility: disableOptions ? "hidden" : "visible", ...bgStyle },
+    style: {
+      visibility: disableOptions && !enableCancelAll ? "hidden" : "visible",
+      ...bgStyle,
+    },
   };
   const ShowIf = useCallback(
     ({ type, children }: { type: CommandType; children: React.ReactNode }) => (
@@ -113,25 +119,33 @@ export function SheetRow({
             setSelectedCommandType(Number(e.target.value) as CommandType)
           }
         >
-          <option value={CommandType.MOVE_SHELF}>家具を移動</option>
-          <option value={CommandType.RETURN_SHELF}>家具を片付ける</option>
-          <option value={CommandType.UNDOCK_SHELF}>
-            持っている家具をその場に置く
-          </option>
-          <option value={CommandType.DOCK_ANY_SHELF}>場所にある家具を載せる</option>
-          <option value={CommandType.MOVE_TO_LOCATION}>移動</option>
-          <option value={CommandType.RETURN_HOME}>充電ドックに戻る</option>
-          {enableShortcutFeature && (
-            <option value={CommandType.SHORTCUT} disabled={disableShortcut}>
-              ショートカットを実行
-            </option>
+          {noKachakaMode !== true && (
+            <>
+              <option value={CommandType.MOVE_SHELF}>家具を移動</option>
+              <option value={CommandType.RETURN_SHELF}>家具を片付ける</option>
+              <option value={CommandType.UNDOCK_SHELF}>
+                持っている家具をその場に置く
+              </option>
+              <option value={CommandType.DOCK_ANY_SHELF}>
+                場所にある家具を載せる
+              </option>
+              <option value={CommandType.MOVE_TO_LOCATION}>移動</option>
+              <option value={CommandType.RETURN_HOME}>充電ドックに戻る</option>
+              {enableShortcutFeature && (
+                <option value={CommandType.SHORTCUT} disabled={disableShortcut}>
+                  ショートカットを実行
+                </option>
+              )}
+              <option value={CommandType.SPEAK}>発話</option>
+              <option value={CommandType.CANCEL_COMMAND}>
+                コマンドキャンセル
+              </option>
+              <option value={CommandType.SET_EMERGENCY_STOP}>
+                一時停止状態にする
+              </option>
+              <option value={CommandType.PROCEED}>待機状態を解除</option>
+            </>
           )}
-          <option value={CommandType.SPEAK}>発話</option>
-          <option value={CommandType.CANCEL_COMMAND}>コマンドキャンセル</option>
-          <option value={CommandType.SET_EMERGENCY_STOP}>
-            一時停止状態にする
-          </option>
-          <option value={CommandType.PROCEED}>待機状態を解除</option>
           <option value={CommandType.HTTP_GET}>HTTP GET</option>
           <option value={CommandType.HTTP_POST}>HTTP POST</option>
         </select>

@@ -5,6 +5,7 @@ import { RegisteredCommand } from "./RegisteredCommand";
 export function RegisteredCommandList({
   commands,
   robotInfo,
+  noKachakaMode,
   buttonIdToNameMap,
   recentPressedButtonId,
   onEdit,
@@ -15,6 +16,7 @@ export function RegisteredCommandList({
 }: {
   commands: { button: Button; command: Command }[] | undefined;
   robotInfo: RobotInfo | undefined;
+  noKachakaMode?: boolean;
   buttonIdToNameMap: Map<string, string>;
   recentPressedButtonId: string[];
   onEdit: (button: Button, command: Command) => void;
@@ -45,6 +47,7 @@ export function RegisteredCommandList({
               button={button}
               command={command}
               robotInfo={robotInfo}
+              noKachakaMode={noKachakaMode}
               recentlyPressed={recentPressedButtonId.includes(
                 GetButtonId(button),
               )}

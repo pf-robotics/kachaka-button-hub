@@ -36,8 +36,8 @@ git submodule update --init
 Install the necessary core and libraries for Arduino:
 
 ```bash
-arduino-cli core install m5stack:esp32 --additional-urls https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/arduino/package_m5stack_index.json
-arduino-cli lib install ArduinoJson ESPAsyncWebServer ESPping M5Unified NimBLE-Arduino@1.4.3 TickTwo
+arduino-cli core install m5stack:esp32@2.1.4 --additional-urls https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/arduino/package_m5stack_index.json
+arduino-cli lib install ArduinoJson@7.1.0 ESPAsyncWebServer@3.1.0 ESPping@1.0.4 M5Unified@0.1.16 NimBLE-Arduino@1.4.3 TickTwo@4.4.0
 ```
 
 #### Add Nanopb to Arduino Library
@@ -104,4 +104,7 @@ docker run --rm \
 
 ---
 
-**Note:** Replace `~/path/to/kachaka-button-hub` with the actual path where your Kachaka Button Hub repository is cloned to ensure all commands work correctly.
+**Note:** 
+* Replace `~/path/to/kachaka-button-hub` with the actual path where your Kachaka Button Hub repository is cloned to ensure all commands work correctly.
+
+* This firmware is designed for use in Japan. If you use it in another country, you need to change the setting in wifi.cpp: ```esp_wifi_set_country_code({country_code})```. 

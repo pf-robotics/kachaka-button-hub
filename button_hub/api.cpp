@@ -470,7 +470,9 @@ static void SendGrpcTask(void* param) {
                            service->response_callback);
   }
 
-  xTaskNotifyGive(service->parent_task_handle);
+  if (g_result_code != ResultCode::kTimeout) {
+    xTaskNotifyGive(service->parent_task_handle);
+  }
   sh2lib_free(&hd);
   vTaskDelete(nullptr);
 }
@@ -495,7 +497,7 @@ static bool EncodeSendAndWait(Service& service, const pb_msgdesc_t* fields,
     return false;
   }
   if (retv == 0) {
-    Serial.printf("Timeout waiting for %s\n", service);
+    g_request_finished = true;  // stop the running task
     g_result_code = ResultCode::kTimeout;
     logging::Log("API ERROR: Timeout waiting for %s", service.service_name);
     return false;
@@ -555,6 +557,9 @@ static void FillCommandCommon(kachaka_api_StartCommandRequest& request,
 ResultCode ReturnHome(const bool cancel_all, const char* tts_on_success,
                       const bool deferrable, const LockOnEnd lock_on_end,
                       const char* title) {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -570,8 +575,10 @@ ResultCode ReturnHome(const bool cancel_all, const char* tts_on_success,
 }
 
 ResultCode StartShortcut(const char* shortcut_id, const bool cancel_all,
-                         const char* tts_on_success, const bool deferrable,
-                         const LockOnEnd lock_on_end, const char* title) {
+                         const char* title) {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"StartShortcutCommand",
                             HandleStartShortcutCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
@@ -580,6 +587,7 @@ ResultCode StartShortcut(const char* shortcut_id, const bool cancel_all,
       kachaka_api_StartShortcutCommandRequest_init_zero;
   request.target_shortcut_id.funcs.encode = EncodeString;
   request.target_shortcut_id.arg = const_cast<char*>(shortcut_id);
+  request.cancel_all = cancel_all;
 
   EncodeSendAndWait(service, kachaka_api_StartShortcutCommandRequest_fields,
                     &request);
@@ -589,6 +597,9 @@ ResultCode StartShortcut(const char* shortcut_id, const bool cancel_all,
 ResultCode MoveToLocation(const char* location_id, const bool cancel_all,
                           const char* tts_on_success, const bool deferrable,
                           const LockOnEnd lock_on_end, const char* title) {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -611,6 +622,9 @@ ResultCode MoveToLocation(const char* location_id, const bool cancel_all,
 ResultCode Speak(const char* text, const bool cancel_all,
                  const char* tts_on_success, const bool deferrable,
                  const LockOnEnd lock_on_end, const char* title) {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -631,6 +645,9 @@ ResultCode DockAnyShelf(const char* location_id, const bool dock_forward,
                         const bool cancel_all, const char* tts_on_success,
                         const bool deferrable, const LockOnEnd lock_on_end,
                         const char* title) {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -656,6 +673,9 @@ ResultCode MoveShelf(const char* shelf_id, const char* location_id,
                      const bool cancel_all, const char* tts_on_success,
                      const bool deferrable, const LockOnEnd lock_on_end,
                      const char* title) {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -678,6 +698,9 @@ ResultCode MoveShelf(const char* shelf_id, const char* location_id,
 ResultCode ReturnShelf(const char* shelf_id, const bool cancel_all,
                        const char* tts_on_success, const bool deferrable,
                        const LockOnEnd lock_on_end, const char* title) {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -699,6 +722,9 @@ ResultCode ReturnShelf(const char* shelf_id, const bool cancel_all,
 ResultCode UndockShelf(const bool cancel_all, const char* tts_on_success,
                        const bool deferrable, const LockOnEnd lock_on_end,
                        const char* title) {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -714,6 +740,9 @@ ResultCode UndockShelf(const bool cancel_all, const char* tts_on_success,
 }
 
 ResultCode Lock(const double duration_sec, const char* title) {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"StartCommand", HandleStartCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -729,6 +758,9 @@ ResultCode Lock(const double duration_sec, const char* title) {
 }
 
 std::pair<ResultCode, std::vector<Shelf>> GetShelves() {
+  if (g_host.isEmpty() || g_port == 0) {
+    return {ResultCode::kNotConnected, {}};
+  }
   static Service service = {"GetShelves", HandleGetShelvesResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -743,6 +775,9 @@ std::pair<ResultCode, std::vector<Shelf>> GetShelves() {
 }
 
 std::pair<ResultCode, std::vector<Location>> GetLocations() {
+  if (g_host.isEmpty() || g_port == 0) {
+    return {ResultCode::kNotConnected, {}};
+  }
   static Service service = {"GetLocations", HandleGetLocationsResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -757,6 +792,9 @@ std::pair<ResultCode, std::vector<Location>> GetLocations() {
 }
 
 std::pair<ResultCode, std::vector<Shortcut>> GetShortcuts() {
+  if (g_host.isEmpty() || g_port == 0) {
+    return {ResultCode::kNotConnected, {}};
+  }
   static Service service = {"GetShortcuts", HandleGetShortcutsResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -771,6 +809,9 @@ std::pair<ResultCode, std::vector<Shortcut>> GetShortcuts() {
 }
 
 ResultCode Proceed() {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"Proceed", HandleProceedResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -781,6 +822,9 @@ ResultCode Proceed() {
 }
 
 ResultCode CancelCommand() {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"CancelCommand", HandleCancelCommandResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 
@@ -791,6 +835,9 @@ ResultCode CancelCommand() {
 }
 
 ResultCode SetEmergencyStop() {
+  if (g_host.isEmpty() || g_port == 0) {
+    return ResultCode::kNotConnected;
+  }
   static Service service = {"SetEmergencyStop", HandleSetEmergencyStopResponse};
   service.parent_task_handle = xTaskGetCurrentTaskHandle();
 

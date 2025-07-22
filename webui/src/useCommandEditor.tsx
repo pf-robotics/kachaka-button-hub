@@ -23,6 +23,7 @@ export function useCommandEditor(
     command.type === CommandType.MOVE_SHELF
       ? command.move_shelf.location_id
       : (robotInfo?.locations?.[0]?.id ?? ""),
+    /* excludeCharger= */ false,
   );
   const [moveShelfShelfId, moveShelfShelfSelect] = useShelfSelect(
     robotInfo?.shelves ?? [],
@@ -49,6 +50,7 @@ export function useCommandEditor(
       command.type === CommandType.MOVE_TO_LOCATION
         ? command.move_to_location.location_id
         : (robotInfo?.locations?.[0]?.id ?? ""),
+      /* excludeCharger= */ false,
     );
   const speakInput = useInput(
     command.type === CommandType.SPEAK ? command.speak.text : "",
@@ -59,6 +61,7 @@ export function useCommandEditor(
       command.type === CommandType.DOCK_ANY_SHELF
         ? command.dock_any_shelf.location_id
         : (robotInfo?.locations?.[0]?.id ?? ""),
+      /* excludeCharger= */ true,
     );
   const [dockAnyShelfDockForward, dockAnyShelfDockForwardSelect] = useSelect(
     ["前向き", "後向き"],
@@ -235,9 +238,14 @@ export function useCommandEditor(
   const disableOptions = [
     CommandType.PROCEED,
     CommandType.CANCEL_COMMAND,
+    CommandType.SHORTCUT, // See `enableCancelAll` below
+    CommandType.SET_EMERGENCY_STOP,
     CommandType.HTTP_GET,
     CommandType.HTTP_POST,
   ].includes(selectedCommandType);
+  // Only the "cancel all" option is available for SHORTCUT commands,
+  // `cancelAllInput` overrides the `disableOptions` state.
+  const enableCancelAll = selectedCommandType === CommandType.SHORTCUT;
 
   return {
     newCommand,
@@ -296,7 +304,12 @@ export function useCommandEditor(
         />
       </>
     ),
-    cancelAllInput: <input {...cancelAllInput} disabled={disableOptions} />,
+    cancelAllInput: (
+      <input
+        {...cancelAllInput}
+        disabled={disableOptions && !enableCancelAll}
+      />
+    ),
     ttsOnSuccessInput: (
       <input {...ttsOnSuccessInput} disabled={disableOptions} />
     ),
@@ -310,6 +323,7 @@ export function useCommandEditor(
     ),
     modified: !isEqual(command, newCommand),
     disableOptions,
+    enableCancelAll,
     disableShortcut: [undefined, 0].includes(robotInfo?.shortcuts?.length),
   };
 }

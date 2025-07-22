@@ -11,14 +11,14 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install
 
 RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
 ENV PATH="/root/bin:${PATH}"
-RUN arduino-cli core install --additional-urls https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/arduino/package_m5stack_index.json m5stack:esp32
+RUN arduino-cli core install --additional-urls https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/arduino/package_m5stack_index.json m5stack:esp32@2.1.4
 RUN arduino-cli lib install \
-        ArduinoJson \
-        ESPAsyncWebServer \
-        ESPping \
-        M5Unified \
+        ArduinoJson@7.1.0 \
+        ESPAsyncWebServer@3.1.0 \
+        ESPping@1.0.4 \
+        M5Unified@0.1.16 \
         NimBLE-Arduino@1.4.3 \
-        TickTwo
+        TickTwo@4.4.0
 
 RUN apt-get update
 RUN apt-get install -y \

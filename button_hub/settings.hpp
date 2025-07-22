@@ -28,6 +28,7 @@ class Settings {
   bool GetOneShotAutoOtaIsEnabled() const;
   bool GetAutoRefetchOnUiLoad() const;
   bool GetGpioButtonIsEnabled() const;
+  bool GetNoKachakaMode() const;
 
   const char* GetOtaEndpoint() const;
   const char* GetOtaLabel() const;
@@ -47,6 +48,7 @@ class Settings {
   void SetOneShotAutoOtaIsEnabled(bool enable);
   void SetAutoRefetchOnUiLoad(bool enable);
   void SetGpioButtonIsEnabled(bool enable);
+  void SetNoKachakaMode(bool enable);
 
   // Non-settings
   int GetNextButtonId();
@@ -76,6 +78,7 @@ class Settings {
   bool one_shot_auto_ota_is_enabled_;
   bool auto_refetch_on_ui_load_;
   bool gpio_button_is_enabled_;
+  bool no_kachaka_mode_;
 };
 
 extern Settings g_settings;

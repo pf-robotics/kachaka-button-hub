@@ -321,6 +321,34 @@ void HandleSetGpioButtonIsEnabled(AsyncWebServerRequest* request,
   request->send(203);
 }
 
+void HandleGetNoKachakaMode(AsyncWebServerRequest* request) {
+  JsonDocument doc;
+  doc["no_kachaka_mode"] = g_settings.GetNoKachakaMode();
+  String out;
+  serializeJson(doc, out);
+  request->send(200, "text/json; charset=utf-8", out);
+}
+
+void HandleSetNoKachakaMode(AsyncWebServerRequest* request,
+                            const String& body) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, body);
+  if (error) {
+    Serial.println("ERROR: Failed to parse JSON");
+    request->send(400, "text/plain", "Bad Request");
+    return;
+  }
+  if (!doc.containsKey("no_kachaka_mode")) {
+    Serial.println("ERROR: Invalid JSON");
+    request->send(400, "text/plain", "Bad Request");
+    return;
+  }
+  const bool v = doc["no_kachaka_mode"].as<bool>();
+  g_settings.SetNoKachakaMode(v);
+  server::EnqueueWsMessage(to_json::ConvertSettings(g_settings));
+  request->send(203);
+}
+
 void HandleOtaByImageUrl(AsyncWebServerRequest* request, const String& body) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, body);

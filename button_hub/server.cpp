@@ -5,6 +5,7 @@
 #include "command_table.hpp"
 #include "data.hpp"
 #include "fetch_state.hpp"
+#include "logging.hpp"
 #include "mutex.hpp"
 #include "server_commands.hpp"
 #include "server_info.hpp"
@@ -290,6 +291,12 @@ static void SetAppHandler(AsyncWebServer& server, CommandTable& command_table) {
       [&command_table](AsyncWebServerRequest* request, const String& body) {
         HandleSetGpioButtonIsEnabled(request, body, command_table);
       });
+  RegisterGetAndPutEntry(
+      server, "/config/no_kachaka_mode",
+      [](AsyncWebServerRequest* request) { HandleGetNoKachakaMode(request); },
+      [&command_table](AsyncWebServerRequest* request, const String& body) {
+        HandleSetNoKachakaMode(request, body);
+      });
 
   RegisterGetAndPutEntry(
       server, "/buttons",
@@ -404,7 +411,7 @@ static void SetCommonSettings(AsyncWebServer& server) {
                                        "Content-Type");
 
   server.begin();
-  Serial.println("HTTP server started");
+  logging::Log("HTTP server started");
 }
 
 void SetupHttpServerForWiFiSetting(RobotInfoHolder& robot_info,

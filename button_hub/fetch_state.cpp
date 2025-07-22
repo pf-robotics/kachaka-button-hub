@@ -4,6 +4,7 @@
 
 #include "api.hpp"
 #include "api_mutex.hpp"
+#include "logging.hpp"
 #include "mutex.hpp"
 #include "server.hpp"
 #include "to_json.hpp"
@@ -31,12 +32,11 @@ static void FetchImpl(RobotInfoHolder& out) {
     auto [code, robot_version] = api::GetRobotVersion();
     if (code == api::ResultCode::kOk) {
       out.robot_version = std::move(robot_version);
-      Serial.printf(" * robot_version = %s\n", out.robot_version.c_str());
+      logging::Log(" * robot_version = %s", out.robot_version.c_str());
       out.has_robot_version = true;
       server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
     } else {
-      Serial.printf("Failed to get version: %s\n",
-                    api::ResultCodeToString(code));
+      logging::Log("Failed to get version: %s", api::ResultCodeToString(code));
       delay(3000);
     }
   }
@@ -47,14 +47,13 @@ static void FetchImpl(RobotInfoHolder& out) {
     if (code == api::ResultCode::kOk) {
       out.shelves = std::move(shelves);
       for (const auto& [id, name] : out.shelves) {
-        Serial.printf(" * %s: %s\n", id.c_str(), name.c_str());
+        logging::Log(" * %s: %s", id.c_str(), name.c_str());
       }
       done = true;
       out.has_shelves = true;
       server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
     } else {
-      Serial.printf("Failed to get shelves: %s\n",
-                    api::ResultCodeToString(code));
+      logging::Log("Failed to get shelves: %s", api::ResultCodeToString(code));
       delay(3000);
     }
   }
@@ -65,15 +64,15 @@ static void FetchImpl(RobotInfoHolder& out) {
     if (code == api::ResultCode::kOk) {
       out.locations = std::move(locations);
       for (const auto& [id, name, type] : out.locations) {
-        Serial.printf(" * %s: %s (%s)\n", id.c_str(), name.c_str(),
-                      GetLocationTypeString(type).c_str());
+        logging::Log(" * %s: %s (%s)", id.c_str(), name.c_str(),
+                     GetLocationTypeString(type).c_str());
       }
       done = true;
       out.has_locations = true;
       server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
     } else {
-      Serial.printf("Failed to get locations: %s\n",
-                    api::ResultCodeToString(code));
+      logging::Log("Failed to get locations: %s",
+                   api::ResultCodeToString(code));
       delay(3000);
     }
   }
@@ -84,14 +83,14 @@ static void FetchImpl(RobotInfoHolder& out) {
     if (code == api::ResultCode::kOk) {
       out.shortcuts = std::move(shortcuts);
       for (const auto& [id, name] : out.shortcuts) {
-        Serial.printf(" * %s: %s\n", id.c_str(), name.c_str());
+        logging::Log(" * %s: %s", id.c_str(), name.c_str());
       }
       done = true;
       out.has_shortcuts = true;
       server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
     } else {
-      Serial.printf("Failed to get shortcuts: %s\n",
-                    api::ResultCodeToString(code));
+      logging::Log("Failed to get shortcuts: %s",
+                   api::ResultCodeToString(code));
       delay(3000);
     }
   }
@@ -99,6 +98,7 @@ static void FetchImpl(RobotInfoHolder& out) {
     const kb::LockGuard lock(g_mutex);
     g_state = State::kCompleted;
   }
+  logging::Log("Fetch completed");
 }
 
 void RunFetchTask(void* arg) {

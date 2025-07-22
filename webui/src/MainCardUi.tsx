@@ -16,6 +16,7 @@ export function MainCardUi({
   buttonIdToNameMap,
   recentPressedButtonId,
   robotInfo,
+  noKachakaMode,
   onEdit,
   onDelete,
   onSetButtonName,
@@ -29,6 +30,7 @@ export function MainCardUi({
   buttonIdToNameMap: Map<string, string>;
   recentPressedButtonId: string[];
   robotInfo: RobotInfo | undefined;
+  noKachakaMode?: boolean;
   onEdit: (button: Button, command: Command) => Promise<void>;
   onDelete: (button: Button) => Promise<void>;
   onSetButtonName: (button: Button, name: string) => Promise<void>;
@@ -47,6 +49,7 @@ export function MainCardUi({
       <RegisteredCommandList
         commands={commands}
         robotInfo={robotInfo}
+        noKachakaMode={noKachakaMode}
         buttonIdToNameMap={buttonIdToNameMap}
         recentPressedButtonId={recentPressedButtonId}
         onEdit={onEdit}

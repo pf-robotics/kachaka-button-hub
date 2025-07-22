@@ -201,6 +201,7 @@ export function Sheet({
   buttonIdToNameMap,
   recentPressedButtonId,
   robotInfo,
+  noKachakaMode,
   enableShortcutFeature,
   onEdit,
   onDelete,
@@ -212,6 +213,7 @@ export function Sheet({
   buttonIdToNameMap: Map<string, string>;
   recentPressedButtonId: string[];
   robotInfo: RobotInfo | undefined;
+  noKachakaMode?: boolean;
   enableShortcutFeature: boolean;
   onEdit: (button: Button, command: Command) => Promise<void>;
   onDelete: (button: Button) => Promise<void>;
@@ -330,6 +332,7 @@ export function Sheet({
                       }
                       enableShortcutFeature={enableShortcutFeature}
                       robotInfo={robotInfo}
+                      noKachakaMode={noKachakaMode}
                       recentlyPressed={recentPressedButtonId.includes(
                         GetButtonId(button),
                       )}

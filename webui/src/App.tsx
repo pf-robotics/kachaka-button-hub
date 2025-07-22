@@ -111,6 +111,13 @@ export function App({
 
   const [editingButton, setEditingButton] = useState<Button>();
   const newCommand = useMemo<Command>(() => {
+    if (settings?.no_kachaka_mode === true) {
+      return {
+        type: CommandType.HTTP_GET,
+        http_get: { url: "http://example.com" },
+        cancel_all: false,  // Not used in no_kachaka_mode. Just for compilation.
+      };
+    }
     const name = editingButton
       ? buttonIdToNameMap.get(GetButtonId(editingButton))
       : undefined;
@@ -121,7 +128,7 @@ export function App({
       lock_duration_sec: 0.0,
       deferrable: false,
     };
-  }, [editingButton, buttonIdToNameMap]);
+  }, [editingButton, buttonIdToNameMap, settings?.no_kachaka_mode]);
   const addNewCommand = useCallback(
     (command: Command) => editingButton && editCommand(editingButton, command),
     [editingButton, editCommand],
@@ -181,11 +188,12 @@ export function App({
       </TopHeader>
       <div className="content">
         {page === "home" ? (
-          robotInfo === undefined ||
-          robotInfo.robot_version === undefined ||
-          robotInfo.shelves === undefined ||
-          robotInfo.locations === undefined ||
-          robotInfo.shortcuts === undefined ? (
+          settings?.no_kachaka_mode === false &&
+          (robotInfo === undefined ||
+            robotInfo.robot_version === undefined ||
+            robotInfo.shelves === undefined ||
+            robotInfo.locations === undefined ||
+            robotInfo.shortcuts === undefined) ? (
             <InitialUi robotInfo={robotInfo} settings={settings} />
           ) : (
             <MainCardUi
@@ -194,6 +202,7 @@ export function App({
               buttonIdToNameMap={buttonIdToNameMap}
               recentPressedButtonId={recentPressedButtonId}
               robotInfo={robotInfo}
+              noKachakaMode={settings?.no_kachaka_mode}
               onEdit={editCommand}
               onDelete={deleteCommand}
               onSetButtonName={setButtonName}
@@ -210,6 +219,7 @@ export function App({
             buttonIdToNameMap={buttonIdToNameMap}
             recentPressedButtonId={recentPressedButtonId}
             robotInfo={robotInfo}
+            noKachakaMode={settings?.no_kachaka_mode}
             enableShortcutFeature={enableShortcutFeature}
             onEdit={editCommand}
             onDelete={deleteCommand}
@@ -241,6 +251,7 @@ export function App({
               key={GetButtonId(editingButton)}
               command={newCommand}
               robotInfo={robotInfo}
+              noKachakaMode={settings?.no_kachaka_mode}
               onSubmit={addNewCommand}
               useLockAndProceed={useLockAndProceed}
               enableShortcutFeature={enableShortcutFeature}

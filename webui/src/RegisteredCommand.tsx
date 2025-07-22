@@ -19,6 +19,7 @@ export function RegisteredCommand({
   button,
   command,
   robotInfo,
+  noKachakaMode,
   recentlyPressed,
   onEdit,
   onDelete,
@@ -30,6 +31,7 @@ export function RegisteredCommand({
   button: Button;
   command: Command;
   robotInfo: RobotInfo | undefined;
+  noKachakaMode?: boolean;
   recentlyPressed: boolean;
   onEdit: (button: Button, command: Command) => void;
   onDelete: (button: Button) => void;
@@ -129,6 +131,7 @@ export function RegisteredCommand({
         <CommandEditor
           command={command}
           robotInfo={robotInfo}
+          noKachakaMode={noKachakaMode}
           onSubmit={handleEdit}
           useLockAndProceed={useLockAndProceed}
           enableShortcutFeature={enableShortcutFeature}

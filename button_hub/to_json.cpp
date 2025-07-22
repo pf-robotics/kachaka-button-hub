@@ -107,6 +107,7 @@ String ConvertSettings(const Settings& settings) {
   //     "auto_ota_is_enabled": false,
   //     "auto_refetch_on_ui_load": false,
   //     "gpio_button_is_enabled": false,
+  //     "no_kachaka_mode": false,
   //   }
   // }
   JsonDocument doc;
@@ -125,6 +126,7 @@ String ConvertSettings(const Settings& settings) {
   settings_json["auto_ota_is_enabled"] = settings.GetAutoOtaIsEnabled();
   settings_json["auto_refetch_on_ui_load"] = settings.GetAutoRefetchOnUiLoad();
   settings_json["gpio_button_is_enabled"] = settings.GetGpioButtonIsEnabled();
+  settings_json["no_kachaka_mode"] = settings.GetNoKachakaMode();
 
   String out;
   serializeJson(doc, out);

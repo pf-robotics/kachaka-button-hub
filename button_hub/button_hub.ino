@@ -187,9 +187,10 @@ static void CheckReboot() {
     }
   }
 
-  // Fetch
-  if (!fetch_state::IsCompleted()) {
-    if (fetch_state::GetDurationFromLastStart() > 3 * 60 * 1000) {
+  if (!g_settings.GetNoKachakaMode()) {
+    // Fetch
+    if (!fetch_state::IsCompleted() &&
+        fetch_state::GetDurationFromLastStart() > 3 * 60 * 1000) {
       screen::DrawWhiteTextWithBlackScreen(
           {"ロボットからの情報取得", "が長引いているので", "再起動します"});
       logging::Log("Rebooting due to fetch timeout ...");
@@ -197,16 +198,16 @@ static void CheckReboot() {
       delay(1000);
       ESP.restart();
     }
-  }
 
-  // Ping
-  if (ping_to_robot::GetDurationFromLastSuccess() > 3 * 60 * 1000) {
-    screen::DrawWhiteTextWithBlackScreen(
-        {"ロボットへのpingが", "失敗し続けているので", "再起動します"});
-    logging::Log("Rebooting due to ping failure ...");
-    logging::Update();
-    delay(1000);
-    ESP.restart();
+    // Ping
+    if (ping_to_robot::GetDurationFromLastSuccess() > 3 * 60 * 1000) {
+      screen::DrawWhiteTextWithBlackScreen(
+          {"ロボットへのpingが", "失敗し続けているので", "再起動します"});
+      logging::Log("Rebooting due to ping failure ...");
+      logging::Update();
+      delay(1000);
+      ESP.restart();
+    }
   }
 
   // Stats
@@ -286,7 +287,7 @@ void setup() {
   screen::Begin(g_settings.GetScreenBrightness());
 
   logging::Begin(g_settings.GetNextLoggingId());
-  logging::Log("Start");
+  logging::Log("Start (%s)", kVersion);
 
   bluetooth::Init();
 
@@ -368,7 +369,9 @@ static void SetupOta() {
         server::Stop();
         bluetooth_beacon::Stop();
         bluetooth_peripheral::Stop();
-        ping_to_robot::Stop();
+        if (!g_settings.GetNoKachakaMode()) {
+          ping_to_robot::Stop();
+        }
         g_page = Page::kOta;
         DrawScreen();
         // Increment fail count here to avoid the case where the device
@@ -419,14 +422,18 @@ static void SetupAsWiFiClient() {
   ip_resolver::Begin();
 
   g_wifi_rssi_timer.start();
-  ping_to_robot::Begin(g_settings.GetRobotHost().c_str());
+  if (!g_settings.GetNoKachakaMode()) {
+    ping_to_robot::Begin(g_settings.GetRobotHost().c_str());
+  }
 
   g_command_table.Load();
 
   server::SetupHttpServer(g_robot, g_command_table);
 
-  api::SetRobotHost(g_settings.GetRobotHost(), 26400);
-  fetch_state::FetchRobotInfo(&g_robot);
+  if (!g_settings.GetNoKachakaMode()) {
+    api::SetRobotHost(g_settings.GetRobotHost(), 26400);
+    fetch_state::FetchRobotInfo(&g_robot);
+  }
 
   g_command_table.SetButtonName(KButton(M5Button(2)), "HubボタンA");
   g_command_table.SetButtonName(KButton(M5Button(3)), "HubボタンB");
@@ -436,7 +443,17 @@ static void SetupAsWiFiClient() {
   g_reboot_timer.start();
   g_clock_timer.start();
 
-  g_bluetooth_beacon_setup.Start();
+  if (!g_settings.GetNoKachakaMode()) {
+    // Starts the Bluetooth beacon after the Fetch operation completes. A
+    // ticker monitors Fetch completion to prevent the two processes from
+    // running simultaneously. This approach helps avoid memory fragmentation
+    // and contributes to system stability.
+    g_bluetooth_beacon_setup.Start();
+  } else {
+    // Start the Bluetooth beacon immediately, since the Fetch operation is not
+    // running in NoKachaka mode.
+    bluetooth_beacon::Begin(&BeaconCallback);
+  }
 }
 
 void loop() {
@@ -473,11 +490,13 @@ void loop() {
         gpio_button::HandleEvents([](const KButton& pressed_button) {
           HandleButtonPressed(pressed_button, -1);
         });
-        screen::DrawStatusInMainPage(!fetch_state::IsCompleted(),
-                                     g_robot.has_robot_version,
-                                     g_robot.has_shelves, g_robot.has_locations,
-                                     g_robot.has_shortcuts, need_redraw);
-        ping_to_robot::Update();
+        if (!g_settings.GetNoKachakaMode()) {
+          screen::DrawStatusInMainPage(
+              !fetch_state::IsCompleted(), g_robot.has_robot_version,
+              g_robot.has_shelves, g_robot.has_locations, g_robot.has_shortcuts,
+              need_redraw);
+          ping_to_robot::Update();
+        }
         break;
       case Page::kOta:
         if (M5.BtnB.wasPressed()) {
@@ -502,7 +521,9 @@ void loop() {
     }
     RegisterOrUnregisterGpioButtonAccordingToSettings(
         g_settings.GetGpioButtonIsEnabled(), g_command_table);
-    g_bluetooth_beacon_setup.Update();
+    if (!g_settings.GetNoKachakaMode()) {
+      g_bluetooth_beacon_setup.Update();
+    }
     g_wifi_rssi_timer.update();
     g_reboot_timer.update();
     g_clock_timer.update();

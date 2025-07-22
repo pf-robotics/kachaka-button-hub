@@ -4,6 +4,7 @@
 #include <M5Unified.h>
 #include <WiFi.h>
 #include <WiFiAP.h>
+#include <esp_wifi.h>
 
 #include "logging.hpp"
 #include "screen.hpp"
@@ -33,6 +34,12 @@ ConnectState ConnectToWiFi(const String& ssid, const String& password,
   if (user_interaction_enabled) {
     screen::DrawWiFiConnectingPage(true);
   }
+
+  // Reset WiFi setting first
+  WiFi.disconnect();
+  WiFi.mode(WIFI_STA);
+  // NOTE: change WiFi country code if used in another country
+  esp_wifi_set_country_code("JP", false);
 
   // Choose the best WiFi AP according to signal strength
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);

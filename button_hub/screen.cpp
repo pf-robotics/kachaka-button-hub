@@ -93,9 +93,11 @@ static void DrawBox1(const char* ssid, const char* hub_host,
   DrawM5Stack(24, y1 + 29);
   DrawStringWithinWidth(hub_host, x1, y1 + 29, kScreenWidth - x1 - kMargin * 2);
 
-  DrawKachaka(22, y1 + 3 + 29 * 2);
-  DrawStringWithinWidth(robot_host, x1, y1 + 29 * 2,
-                        kScreenWidth - x1 - kMargin * 2);
+  if (!g_settings.GetNoKachakaMode()) {
+    DrawKachaka(22, y1 + 3 + 29 * 2);
+    DrawStringWithinWidth(robot_host, x1, y1 + 29 * 2,
+                          kScreenWidth - x1 - kMargin * 2);
+  }
 }
 
 static void DrawBox2() {
@@ -113,8 +115,10 @@ static void DrawBox2() {
     version += ")";
   }
   M5.Lcd.drawString(version.c_str(), 24, y);
-  M5.Lcd.drawString("ロボットからの情報取得:", 24, y + lh * 1);
-  M5.Lcd.drawString("ロボットへPing:", 24, y + lh * 2);
+  if (!g_settings.GetNoKachakaMode()) {
+    M5.Lcd.drawString("ロボットからの情報取得:", 24, y + lh * 1);
+    M5.Lcd.drawString("ロボットへPing:", 24, y + lh * 2);
+  }
 }
 
 static void DrawBase(const uint16_t bg_color, const char* title,
@@ -400,7 +404,7 @@ void DrawClock() {
   M5.Lcd.setTextDatum(TL_DATUM);
   M5.Lcd.setCursor(8, 3);
 
-  struct tm timeinfo{};
+  struct tm timeinfo {};
   if (!getLocalTime(&timeinfo, 10)) {
     M5.Lcd.setTextColor(kKachakaGray5, TFT_WHITE);
     M5.Lcd.print("??:??");

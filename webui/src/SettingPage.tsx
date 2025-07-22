@@ -4,6 +4,7 @@ import { RobotHostEditor } from "./RobotHostEditor";
 import { CheckboxConfigEditor } from "./CheckboxConfigEditor";
 import { SliderConfigEditor } from "./SliderConfigEditor";
 import { ButtonWithConfirmation } from "./ButtonWithConfirmation";
+import { Collapse } from "./Collapse";
 import { Settings } from "./types";
 import { getHubHttpApiEndpoint } from "./utils";
 
@@ -53,11 +54,14 @@ export function SettingPage({
         }
       });
   }, []);
+  const noKachakaMode = settings?.no_kachaka_mode === true;
 
   return (
     <div style={{ position: "relative", maxWidth: 540, alignSelf: "center" }}>
-      <h3>カチャカのシリアル番号・IPアドレス</h3>
-      <RobotHostEditor robotHost={robotHost} />
+      <Collapse open={!noKachakaMode}>
+        <h3>カチャカのシリアル番号・IPアドレス</h3>
+        <RobotHostEditor robotHost={robotHost} />
+      </Collapse>
 
       <h3>音量</h3>
       <SliderConfigEditor
@@ -80,18 +84,26 @@ export function SettingPage({
       />
 
       <h3>詳細設定</h3>
-      <CheckboxConfigEditor
-        path="/config/auto_refetch_on_ui_load"
-        fieldKey="auto_refetch_on_ui_load"
-        value={settings?.auto_refetch_on_ui_load}
-        label="カチャカボタンHub画面をリロードすると家具・目的地の情報をカチャカから再取得する（実験的機能）"
-      />
-      <CheckboxConfigEditor
-        path="/config/gpio_button_is_enabled"
-        fieldKey="gpio_button_is_enabled"
-        value={settings?.gpio_button_is_enabled}
-        label="Hub Plusボタンを有効にする（専用ハードウェア）"
-      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <CheckboxConfigEditor
+          path="/config/no_kachaka_mode"
+          fieldKey="no_kachaka_mode"
+          value={settings?.no_kachaka_mode}
+          label="カチャカに直接接続しないモード（フリートマネージャーなどで利用。設定後、再起動が必要）"
+        />
+        <CheckboxConfigEditor
+          path="/config/auto_refetch_on_ui_load"
+          fieldKey="auto_refetch_on_ui_load"
+          value={settings?.auto_refetch_on_ui_load}
+          label="カチャカボタンHub画面をリロードすると家具・目的地の情報をカチャカから再取得する（実験的機能）"
+        />
+        <CheckboxConfigEditor
+          path="/config/gpio_button_is_enabled"
+          fieldKey="gpio_button_is_enabled"
+          value={settings?.gpio_button_is_enabled}
+          label="Hub Plusボタンを有効にする（専用ハードウェア）"
+        />
+      </div>
 
       <h3>Wi-Fiの設定</h3>
       <a href="/#wifi">Wi-Fiの設定画面</a>

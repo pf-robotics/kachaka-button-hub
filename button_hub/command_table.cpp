@@ -17,6 +17,8 @@
 constexpr int kFileVersion = 7;
 static constexpr char const* kCommandTablePath = "/command_table.dat";
 static constexpr char const* kTemporaryCommandTablePath = "/command_table.tmp";
+static constexpr char const* kBackUpCommandTablePath = "/command_table.bak";
+static const uint8_t kRetryMax = 5;
 
 static bool WriteInt32(File& file, const int32_t value) {
   const size_t retv =
@@ -311,7 +313,7 @@ bool CommandTable::LoadButtonNameArrayLocked(const String& json) {
   return true;
 }
 
-void CommandTable::Save() {
+bool CommandTable::Save() {
   const kb::LockGuard lock(mutex_);
 
   logging::Log("Save command table.");
@@ -319,27 +321,54 @@ void CommandTable::Save() {
     File file = SPIFFS.open(kTemporaryCommandTablePath, "w");
     if (!file) {
       logging::Log("Failed to open the command file");
-      return;
+      return false;
     }
     if (!WriteInt32(file, kFileVersion) ||
         !WriteString(file, to_json::ConvertObservedButtons(observed_buttons_,
                                                            button_names_)) ||
         !WriteString(file, to_json::ConvertCommands(registered_commands_))) {
       logging::Log("Failed to write the command file");
-      return;
+      return false;
     }
     file.flush();
   }
-  if (!SPIFFS.remove(kCommandTablePath)) {
-    logging::Log("Failed to remove the old file");
+
+  if (SPIFFS.exists(kBackUpCommandTablePath)) {
+    if (!RemoveFileWithRetries(kBackUpCommandTablePath, kRetryMax)) {
+      logging::Log("Failed to remove exiesting backup file.");
+      return false;
+    }
   }
-  if (!SPIFFS.rename(kTemporaryCommandTablePath, kCommandTablePath)) {
+
+  if (SPIFFS.exists(kCommandTablePath)) {
+    if (!RenameFileWithRetries(kCommandTablePath, kBackUpCommandTablePath,
+                               kRetryMax)) {
+      logging::Log("Failed to save command table.");
+      return false;
+    }
+  }
+
+  if (!RenameFileWithRetries(kTemporaryCommandTablePath, kCommandTablePath,
+                             kRetryMax)) {
     logging::Log(
-        "Failed to swap the command file and the temporary file. The command "
-        "file is lost.");
+        "Failed to saved the command table, trying to restore from backup "
+        "file.");
+    if (!RenameFileWithRetries(kBackUpCommandTablePath, kCommandTablePath,
+                               kRetryMax)) {
+      logging::Log("Failed to restore, the command table is lost.");
+      return false;
+    }
+    logging::Log("Restored the command table from backup file.");
+    return false;
   }
-  logging::Log("Saved the command table: %d buttons, %d commands",
+
+  if (!RemoveFileWithRetries(kBackUpCommandTablePath, kRetryMax)) {
+    logging::Log("Failed to remove temporary command table file.");
+  }
+
+  logging::Log("Success: Saved the command table: %d buttons, %d commands",
                button_names_.size(), registered_commands_.size());
+  return true;
 }
 
 void CommandTable::Load() {
@@ -356,6 +385,7 @@ void CommandTable::Load() {
   logging::Log("File version = %d", version);
   if (version != kFileVersion) {
     logging::Log("Invalid version %d", version);
+    file.close();
     return;
   }
 
@@ -405,4 +435,31 @@ void CommandTable::DeleteCommandLocked(const KButton& button) {
 void CommandTable::SetButtonNameLocked(const KButton& button,
                                        const String& name) {
   button_names_[button] = name;
+}
+
+bool CommandTable::RemoveFileWithRetries(const char* path,
+                                         const uint8_t retry_max) {
+  for (uint8_t i = 0; i < retry_max; i++) {
+    if (SPIFFS.remove(path)) {
+      return true;
+    }
+    logging::Log("Failed to remove file, retrying...");
+    delay(5);
+  }
+  logging::Log("Failed to remove %s", path);
+  return false;
+}
+
+bool CommandTable::RenameFileWithRetries(const char* old_path,
+                                         const char* new_path,
+                                         const uint8_t retry_max) {
+  for (uint8_t i = 0; i < retry_max; i++) {
+    if (SPIFFS.rename(old_path, new_path)) {
+      return true;
+    }
+    logging::Log("Failed to rename, retrying...");
+    delay(5);
+  }
+  logging::Log("Failed to rename %s to %s", old_path, new_path);
+  return false;
 }

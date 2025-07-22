@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 
+import { Collapse } from "./Collapse";
 import { RobotInfo, CommandType, Command } from "./types";
 import { useCommandEditor } from "./useCommandEditor";
 
@@ -58,6 +59,7 @@ function Item({
 export function CommandEditor({
   command,
   robotInfo,
+  noKachakaMode,
   onSubmit,
   useLockAndProceed,
   enableShortcutFeature,
@@ -65,6 +67,7 @@ export function CommandEditor({
 }: {
   command: Command;
   robotInfo: RobotInfo | undefined;
+  noKachakaMode?: boolean;
   onSubmit: (command: Command) => void;
   useLockAndProceed: boolean;
   enableShortcutFeature: boolean;
@@ -92,6 +95,7 @@ export function CommandEditor({
     lockDurationSecInput,
     modified,
     disableOptions,
+    enableCancelAll,
     disableShortcut,
   } = useCommandEditor(command, selectedCommandType, robotInfo);
   const handleSubmit = useCallback(() => {
@@ -109,90 +113,94 @@ export function CommandEditor({
         }}
       >
         <h3>コマンド</h3>
-        <Item
-          commandType={CommandType.MOVE_SHELF}
-          command={newCommand}
-          onSelect={() => setSelectedCommandType(CommandType.MOVE_SHELF)}
-        >
-          {moveShelf}
-        </Item>
-        <Item
-          commandType={CommandType.RETURN_SHELF}
-          command={newCommand}
-          onSelect={() => setSelectedCommandType(CommandType.RETURN_SHELF)}
-        >
-          {returnShelf}
-        </Item>
-        <Item
-          commandType={CommandType.UNDOCK_SHELF}
-          command={newCommand}
-          onSelect={() => setSelectedCommandType(CommandType.UNDOCK_SHELF)}
-        >
-          {undockShelf}
-        </Item>
-        <Item
-          commandType={CommandType.DOCK_ANY_SHELF}
-          command={newCommand}
-          onSelect={() => setSelectedCommandType(CommandType.DOCK_ANY_SHELF)}
-        >
-          {dockAnyShelf}
-        </Item>
-        <Item
-          commandType={CommandType.MOVE_TO_LOCATION}
-          command={newCommand}
-          onSelect={() => setSelectedCommandType(CommandType.MOVE_TO_LOCATION)}
-        >
-          {moveToLocation}
-        </Item>
-        <Item
-          commandType={CommandType.RETURN_HOME}
-          command={newCommand}
-          onSelect={() => setSelectedCommandType(CommandType.RETURN_HOME)}
-        >
-          {returnHome}
-        </Item>
-        {enableShortcutFeature && (
+        <Collapse open={noKachakaMode !== true}>
           <Item
-            commandType={CommandType.SHORTCUT}
+            commandType={CommandType.MOVE_SHELF}
             command={newCommand}
-            onSelect={() => setSelectedCommandType(CommandType.SHORTCUT)}
-            disabled={disableShortcut}
+            onSelect={() => setSelectedCommandType(CommandType.MOVE_SHELF)}
           >
-            {shortcut}
+            {moveShelf}
           </Item>
-        )}
-        <Item
-          commandType={CommandType.SPEAK}
-          command={newCommand}
-          onSelect={() => setSelectedCommandType(CommandType.SPEAK)}
-        >
-          {speak}
-        </Item>
-        <Item
-          commandType={CommandType.CANCEL_COMMAND}
-          command={newCommand}
-          onSelect={() => setSelectedCommandType(CommandType.CANCEL_COMMAND)}
-        >
-          {cancelCommand}
-        </Item>
-        {useLockAndProceed && (
           <Item
-            commandType={CommandType.PROCEED}
+            commandType={CommandType.RETURN_SHELF}
             command={newCommand}
-            onSelect={() => setSelectedCommandType(CommandType.PROCEED)}
+            onSelect={() => setSelectedCommandType(CommandType.RETURN_SHELF)}
           >
-            {proceed}
+            {returnShelf}
           </Item>
-        )}
-        <Item
-          commandType={CommandType.SET_EMERGENCY_STOP}
-          command={newCommand}
-          onSelect={() =>
-            setSelectedCommandType(CommandType.SET_EMERGENCY_STOP)
-          }
-        >
-          {setEmergencyStop}
-        </Item>
+          <Item
+            commandType={CommandType.UNDOCK_SHELF}
+            command={newCommand}
+            onSelect={() => setSelectedCommandType(CommandType.UNDOCK_SHELF)}
+          >
+            {undockShelf}
+          </Item>
+          <Item
+            commandType={CommandType.DOCK_ANY_SHELF}
+            command={newCommand}
+            onSelect={() => setSelectedCommandType(CommandType.DOCK_ANY_SHELF)}
+          >
+            {dockAnyShelf}
+          </Item>
+          <Item
+            commandType={CommandType.MOVE_TO_LOCATION}
+            command={newCommand}
+            onSelect={() =>
+              setSelectedCommandType(CommandType.MOVE_TO_LOCATION)
+            }
+          >
+            {moveToLocation}
+          </Item>
+          <Item
+            commandType={CommandType.RETURN_HOME}
+            command={newCommand}
+            onSelect={() => setSelectedCommandType(CommandType.RETURN_HOME)}
+          >
+            {returnHome}
+          </Item>
+          {enableShortcutFeature && (
+            <Item
+              commandType={CommandType.SHORTCUT}
+              command={newCommand}
+              onSelect={() => setSelectedCommandType(CommandType.SHORTCUT)}
+              disabled={disableShortcut}
+            >
+              {shortcut}
+            </Item>
+          )}
+          <Item
+            commandType={CommandType.SPEAK}
+            command={newCommand}
+            onSelect={() => setSelectedCommandType(CommandType.SPEAK)}
+          >
+            {speak}
+          </Item>
+          <Item
+            commandType={CommandType.CANCEL_COMMAND}
+            command={newCommand}
+            onSelect={() => setSelectedCommandType(CommandType.CANCEL_COMMAND)}
+          >
+            {cancelCommand}
+          </Item>
+          {useLockAndProceed && (
+            <Item
+              commandType={CommandType.PROCEED}
+              command={newCommand}
+              onSelect={() => setSelectedCommandType(CommandType.PROCEED)}
+            >
+              {proceed}
+            </Item>
+          )}
+          <Item
+            commandType={CommandType.SET_EMERGENCY_STOP}
+            command={newCommand}
+            onSelect={() =>
+              setSelectedCommandType(CommandType.SET_EMERGENCY_STOP)
+            }
+          >
+            {setEmergencyStop}
+          </Item>
+        </Collapse>
         <Item
           commandType={CommandType.HTTP_GET}
           command={newCommand}
@@ -207,21 +215,33 @@ export function CommandEditor({
         >
           {httpPost}
         </Item>
-        <h3 className={disableOptions ? "disabled" : undefined}>オプション</h3>
-        <div className={disableOptions ? "disabled" : undefined}>
-          <label>{cancelAllInput} 実行中のコマンドをキャンセルする</label>
-        </div>
-        <div className={disableOptions ? "disabled" : undefined}>
-          <label>{deferrableInput} 後回しにしてよい</label>
-        </div>
-        <div className={disableOptions ? "disabled" : undefined}>
-          <label>コマンド成功後に {ttsOnSuccessInput} と発話</label>
-        </div>
-        {useLockAndProceed && (
-          <div className={disableOptions ? "disabled" : undefined}>
-            <label>到着後に {lockDurationSecInput} 秒間待機する</label>
+        <Collapse open={noKachakaMode !== true}>
+          <h3
+            className={
+              disableOptions && !enableCancelAll ? "disabled" : undefined
+            }
+          >
+            オプション
+          </h3>
+          <div
+            className={
+              disableOptions && !enableCancelAll ? "disabled" : undefined
+            }
+          >
+            <label>{cancelAllInput} 実行中のコマンドをキャンセルする</label>
           </div>
-        )}
+          <div className={disableOptions ? "disabled" : undefined}>
+            <label>{deferrableInput} 後回しにしてよい</label>
+          </div>
+          <div className={disableOptions ? "disabled" : undefined}>
+            <label>コマンド成功後に {ttsOnSuccessInput} と発話</label>
+          </div>
+          {useLockAndProceed && (
+            <div className={disableOptions ? "disabled" : undefined}>
+              <label>到着後に {lockDurationSecInput} 秒間待機する</label>
+            </div>
+          )}
+        </Collapse>
       </div>
       <div style={{ margin: 8, display: "flex", justifyContent: "center" }}>
         <button

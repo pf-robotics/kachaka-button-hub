@@ -6,6 +6,7 @@
 #include <string>
 
 #include "bluetooth.hpp"
+#include "logging.hpp"
 
 static constexpr int kScanDurationSec = 3;
 
@@ -73,7 +74,7 @@ void Begin(void (*beacon_callback)(const char* name, const uint8_t address[6],
   g_ble_scan->setWindow(99);
 
   g_ble_scan->start(kScanDurationSec, &OnScanComplete, true);
-  Serial.println("BLE Scan started");
+  logging::Log("BLE Scan started");
 }
 
 void Stop() {

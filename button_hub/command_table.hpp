@@ -259,7 +259,7 @@ class CommandTable {
   bool LoadCommand(const String& json);
   bool LoadCommandArray(const String& json);
 
-  void Save();
+  bool Save();
   void Load();
   void Reset();
 
@@ -269,6 +269,9 @@ class CommandTable {
   void SetButtonNameLocked(const KButton& button, const String& name);
   bool LoadCommandArrayLocked(const String& json);
   bool LoadButtonNameArrayLocked(const String& json);
+  bool RemoveFileWithRetries(const char* path, const uint8_t retry_max);
+  bool RenameFileWithRetries(const char* old_path, const char* new_path,
+                             const uint8_t retry_max);
 
   int max_observed_buttons_;
   mutable kb::Mutex mutex_;

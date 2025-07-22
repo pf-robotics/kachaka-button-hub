@@ -27,6 +27,8 @@ void HandleGetGpioButtonIsEnabled(AsyncWebServerRequest* request);
 void HandleSetGpioButtonIsEnabled(AsyncWebServerRequest* request,
                                   const String& body,
                                   CommandTable& command_table);
+void HandleGetNoKachakaMode(AsyncWebServerRequest* request);
+void HandleSetNoKachakaMode(AsyncWebServerRequest* request, const String& body);
 
 void HandleGetDesiredHubVersion(AsyncWebServerRequest* request);
 void HandleGetOtaImageUrlByVersion(AsyncWebServerRequest* request,

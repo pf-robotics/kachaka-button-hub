@@ -142,10 +142,9 @@ bool SendCommand(const RobotInfoHolder& robot_info, const Command& command) {
                           GenerateTitle(robot_info, command).c_str());
       break;
     case CommandType::SHORTCUT:
-      result = api::StartShortcut(
-          command.shortcut.target_shortcut_id.c_str(), command.cancel_all,
-          command.tts_on_success.c_str(), command.deferrable, lock_on_end,
-          GenerateTitle(robot_info, command).c_str());
+      result = api::StartShortcut(command.shortcut.target_shortcut_id.c_str(),
+                                  command.cancel_all,
+                                  GenerateTitle(robot_info, command).c_str());
       break;
     case CommandType::SPEAK:
       result =

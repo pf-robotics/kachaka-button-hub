@@ -37,6 +37,7 @@ export interface Settings {
   auto_ota_is_enabled: boolean;
   auto_refetch_on_ui_load: boolean;
   gpio_button_is_enabled: boolean;
+  no_kachaka_mode: boolean;
 }
 
 export interface AppleIBeacon {
