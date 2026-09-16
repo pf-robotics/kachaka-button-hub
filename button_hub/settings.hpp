@@ -29,6 +29,7 @@ class Settings {
   bool GetAutoRefetchOnUiLoad() const;
   bool GetGpioButtonIsEnabled() const;
   bool GetNoKachakaMode() const;
+  bool GetIsCore2() const;
 
   const char* GetOtaEndpoint() const;
   const char* GetOtaLabel() const;
@@ -49,6 +50,7 @@ class Settings {
   void SetAutoRefetchOnUiLoad(bool enable);
   void SetGpioButtonIsEnabled(bool enable);
   void SetNoKachakaMode(bool enable);
+  void SetIsCore2(bool is_core2);
 
   // Non-settings
   int GetNextButtonId();
@@ -79,6 +81,7 @@ class Settings {
   bool auto_refetch_on_ui_load_;
   bool gpio_button_is_enabled_;
   bool no_kachaka_mode_;
+  bool is_core2_;
 };
 
 extern Settings g_settings;

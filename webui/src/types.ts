@@ -89,10 +89,26 @@ export function ConvertButtonJsonToButton(
   return { ...button } as Button;
 }
 
+export const kBraveridgeUuid = "00010203-0405-0607-0809-0a0b0c0d0e0f";
+export const kBraveridgeSinglePressMajor = 0x0001; 
+export const kBraveridgeDoublePressMajor = 0x3001; 
+export const kBraveridgeLongPressMajor = 0x1001; 
+
 export function IsBraveridgeButton(button: Button | ButtonJson) {
   return (
+    "apple_i_beacon" in button && button.apple_i_beacon.uuid === kBraveridgeUuid
+  );
+}
+
+export const kBraveridgePlusUuid1 = "581e31d6-e7ba-407a-b12e-949ace475485";
+export const kBraveridgePlusUuid2 = "aa82ce42-bfc7-4182-b760-1cca10116876";
+export const kBraveridgePlusLongPressMajorBit = 0x4000;
+
+export function IsBraveridgePlusButton(button: Button | ButtonJson) {
+  return (
     "apple_i_beacon" in button &&
-    button.apple_i_beacon.uuid === "00010203-0405-0607-0809-0a0b0c0d0e0f"
+    (button.apple_i_beacon.uuid === kBraveridgePlusUuid1 ||
+      button.apple_i_beacon.uuid === kBraveridgePlusUuid2)
   );
 }
 
@@ -102,15 +118,22 @@ export function GetButtonId(button: Button | ButtonJson) {
   }
   if ("apple_i_beacon" in button) {
     if (IsBraveridgeButton(button)) {
-      if (button.apple_i_beacon.major === 1) {
+      if (button.apple_i_beacon.major === kBraveridgeSinglePressMajor) {
         return `braveridge:${button.apple_i_beacon.address}:1`;
       }
-      if (button.apple_i_beacon.major === 12289) {
+      if (button.apple_i_beacon.major === kBraveridgeDoublePressMajor) {
         return `braveridge:${button.apple_i_beacon.address}:2`;
       }
-      if (button.apple_i_beacon.major === 4097) {
+      if (button.apple_i_beacon.major === kBraveridgeLongPressMajor) {
         return `braveridge:${button.apple_i_beacon.address}:L`;
       }
+    }
+    if (IsBraveridgePlusButton(button)) {
+      const btnNum =
+        button.apple_i_beacon.uuid === kBraveridgePlusUuid1 ? "1" : "2";
+      const isLong =
+        (button.apple_i_beacon.major & kBraveridgePlusLongPressMajorBit) !== 0;
+      return `braveridge_plus:${button.apple_i_beacon.address}:${btnNum}${isLong ? "L" : ""}`;
     }
     return `apple_i_beacon:${button.apple_i_beacon.address}_${button.apple_i_beacon.uuid}_${button.apple_i_beacon.major}_${button.apple_i_beacon.minor}`;
   }
@@ -125,7 +148,7 @@ export function GetButtonName(button: Button | ButtonJson) {
     return `Hubボタン${button.m5_button.id}`;
   }
   if ("apple_i_beacon" in button) {
-    if (IsBraveridgeButton(button)) {
+    if (IsBraveridgeButton(button) || IsBraveridgePlusButton(button)) {
       return `ボタン ${button.apple_i_beacon.address}`;
     }
     return `ビーコン ${button.apple_i_beacon.address}`;

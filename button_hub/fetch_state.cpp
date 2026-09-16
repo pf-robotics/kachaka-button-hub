@@ -26,7 +26,7 @@ static int32_t g_last_fetch = 0;
 static constexpr int32_t kInterval = 30 * 1000;
 
 static void FetchImpl(RobotInfoHolder& out) {
-  server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
+  server::EnqueueWsMessage(to_json::ConvertRobotVersion(out));
 
   while (!out.has_robot_version) {
     auto [code, robot_version] = api::GetRobotVersion();
@@ -34,7 +34,7 @@ static void FetchImpl(RobotInfoHolder& out) {
       out.robot_version = std::move(robot_version);
       logging::Log(" * robot_version = %s", out.robot_version.c_str());
       out.has_robot_version = true;
-      server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
+      server::EnqueueWsMessage(to_json::ConvertRobotVersion(out));
     } else {
       logging::Log("Failed to get version: %s", api::ResultCodeToString(code));
       delay(3000);
@@ -46,12 +46,10 @@ static void FetchImpl(RobotInfoHolder& out) {
     auto [code, shelves] = api::GetShelves();
     if (code == api::ResultCode::kOk) {
       out.shelves = std::move(shelves);
-      for (const auto& [id, name] : out.shelves) {
-        logging::Log(" * %s: %s", id.c_str(), name.c_str());
-      }
+      logging::Log(" * Loaded %d shelves", out.shelves.size());
       done = true;
       out.has_shelves = true;
-      server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
+      server::EnqueueWsMessage(to_json::ConvertShelves(out));
     } else {
       logging::Log("Failed to get shelves: %s", api::ResultCodeToString(code));
       delay(3000);
@@ -63,13 +61,10 @@ static void FetchImpl(RobotInfoHolder& out) {
     auto [code, locations] = api::GetLocations();
     if (code == api::ResultCode::kOk) {
       out.locations = std::move(locations);
-      for (const auto& [id, name, type] : out.locations) {
-        logging::Log(" * %s: %s (%s)", id.c_str(), name.c_str(),
-                     GetLocationTypeString(type).c_str());
-      }
+      logging::Log(" * Loaded %d locations", out.locations.size());
       done = true;
       out.has_locations = true;
-      server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
+      server::EnqueueWsMessage(to_json::ConvertLocations(out));
     } else {
       logging::Log("Failed to get locations: %s",
                    api::ResultCodeToString(code));
@@ -82,12 +77,10 @@ static void FetchImpl(RobotInfoHolder& out) {
     auto [code, shortcuts] = api::GetShortcuts();
     if (code == api::ResultCode::kOk) {
       out.shortcuts = std::move(shortcuts);
-      for (const auto& [id, name] : out.shortcuts) {
-        logging::Log(" * %s: %s", id.c_str(), name.c_str());
-      }
+      logging::Log(" * Loaded %d shortcuts", out.shortcuts.size());
       done = true;
       out.has_shortcuts = true;
-      server::EnqueueWsMessage(to_json::ConvertRobotInfo(out));
+      server::EnqueueWsMessage(to_json::ConvertShortcuts(out));
     } else {
       logging::Log("Failed to get shortcuts: %s",
                    api::ResultCodeToString(code));

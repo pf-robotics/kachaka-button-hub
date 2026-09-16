@@ -20,6 +20,17 @@ static constexpr char const* kTemporaryCommandTablePath = "/command_table.tmp";
 static constexpr char const* kBackUpCommandTablePath = "/command_table.bak";
 static const uint8_t kRetryMax = 5;
 
+namespace {
+class ScopedFlag {
+ public:
+  explicit ScopedFlag(std::atomic<bool>& flag) : flag_(flag) { flag_ = true; }
+  ~ScopedFlag() { flag_ = false; }
+
+ private:
+  std::atomic<bool>& flag_;
+};
+}  // namespace
+
 static bool WriteInt32(File& file, const int32_t value) {
   const size_t retv =
       file.write(reinterpret_cast<const uint8_t*>(&value), sizeof(value));
@@ -157,7 +168,10 @@ CommandTable::CommandTable(const int max_observed_buttons)
     : max_observed_buttons_(max_observed_buttons),
       observed_buttons_(),
       registered_commands_(),
-      button_names_() {}
+      button_names_() {
+  // Reserve up front so registration never reallocates on the fragmented heap.
+  registered_commands_.reserve(kMaxRegisteredCommands);
+}
 
 void CommandTable::NotifyObservedButton(const KButton& button,
                                         const double estimated_distance) {
@@ -238,7 +252,7 @@ bool CommandTable::LoadCommand(const String& json) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, json);
   if (error) {
-    Serial.println("ERROR: Failed to parse JSON");
+    logging::Log("ERROR: Failed to parse JSON");
     return false;
   }
   JsonObject root = doc.as<JsonObject>();
@@ -247,8 +261,7 @@ bool CommandTable::LoadCommand(const String& json) {
   if (!from_json::ConvertCommandJson(root, button, command)) {
     return false;
   }
-  SetCommandLocked(button, command);
-  return true;
+  return SetCommandLocked(button, command);
 }
 
 bool CommandTable::LoadCommandArray(const String& json) {
@@ -260,12 +273,12 @@ bool CommandTable::LoadCommandArrayLocked(const String& json) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, json);
   if (error) {
-    Serial.println("ERROR: Failed to parse JSON");
+    logging::Log("ERROR: Failed to parse JSON");
     return false;
   }
   JsonObject root = doc.as<JsonObject>();
   if (!root.containsKey("commands")) {
-    Serial.println("ERROR: Failed to parse JSON");
+    logging::Log("ERROR: Failed to parse JSON");
     return false;
   }
 
@@ -280,7 +293,10 @@ bool CommandTable::LoadCommandArrayLocked(const String& json) {
       ok = false;
       continue;
     }
-    SetCommandLocked(button, command);
+    if (!SetCommandLocked(button, command)) {
+      ok = false;
+      break;
+    }
   }
   return ok;
 }
@@ -289,12 +305,12 @@ bool CommandTable::LoadButtonNameArrayLocked(const String& json) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, json);
   if (error) {
-    Serial.println("ERROR: Failed to parse JSON");
+    logging::Log("ERROR: Failed to parse JSON");
     return false;
   }
   JsonObject root = doc.as<JsonObject>();
   if (!root.containsKey("buttons")) {
-    Serial.println("ERROR: Failed to parse JSON");
+    logging::Log("ERROR: Failed to parse JSON");
     return false;
   }
 
@@ -315,6 +331,7 @@ bool CommandTable::LoadButtonNameArrayLocked(const String& json) {
 
 bool CommandTable::Save() {
   const kb::LockGuard lock(mutex_);
+  const ScopedFlag saving(saving_);
 
   logging::Log("Save command table.");
   {
@@ -375,9 +392,18 @@ void CommandTable::Load() {
   const kb::LockGuard lock(mutex_);
 
   logging::Log("Load command table.");
-  File file = SPIFFS.open(kCommandTablePath);
+  // command table file open with retries
+  File file;
+  for (int i = 0; i < kRetryMax; i++) {
+    file = SPIFFS.open(kCommandTablePath);
+    if (file) {
+      break;
+    }
+    logging::Log("Retrying...");
+    delay(5);
+  }
   if (!file) {
-    logging::Log("No setting file");
+    logging::Log("Command table failed to open.");
     return;
   }
 
@@ -413,14 +439,26 @@ void CommandTable::Reset() {
   SPIFFS.remove(kCommandTablePath);
 }
 
-void CommandTable::SetCommandLocked(const KButton& button,
+bool CommandTable::SetCommandLocked(const KButton& button,
                                     const Command& command) {
+  const bool already_registered =
+      std::any_of(registered_commands_.begin(), registered_commands_.end(),
+                  [&button](const ButtonCommandPair& pair) {
+                    return pair.button == button;
+                  });
+  if (!already_registered &&
+      registered_commands_.size() >= kMaxRegisteredCommands) {
+    logging::Log("ERROR: Command table is full (max %d)",
+                 static_cast<int>(kMaxRegisteredCommands));
+    return false;
+  }
   if (button_names_.count(button) == 0) {
     const String name = "ボタン" + String(g_settings.GetNextButtonId());
     SetButtonNameLocked(button, name);
   }
   DeleteCommandLocked(button);
   registered_commands_.push_back(ButtonCommandPair{button, command});
+  return true;
 }
 
 void CommandTable::DeleteCommandLocked(const KButton& button) {

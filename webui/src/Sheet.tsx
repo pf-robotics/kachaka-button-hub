@@ -10,6 +10,13 @@ import {
   RobotInfo,
   GetButtonId,
   GetButtonName,
+  IsBraveridgePlusButton,
+  kBraveridgePlusUuid1,
+  kBraveridgePlusUuid2,
+  kBraveridgePlusLongPressMajorBit,
+  kBraveridgeSinglePressMajor,
+  kBraveridgeDoublePressMajor,
+  kBraveridgeLongPressMajor,
 } from "./types";
 import { ButtonNameEditor } from "./ButtonNameEditor";
 import { Distance } from "./Distance";
@@ -30,12 +37,67 @@ interface ButtonGroup {
   isSeparator?: boolean;
 }
 
-function AddAppleIBeacon(
+function AddBraveridgePlusButton(
+  button: { apple_i_beacon: AppleIBeacon },
+  out: ButtonGroup[],
+) {
+  const addr = button.apple_i_beacon.address;
+
+  let group = out.find((x) => x.address === addr);
+  if (!group) {
+    const base = { ...button };
+    const mk = (u: string, isLong: boolean) => ({
+      ...base,
+      apple_i_beacon: {
+        ...base.apple_i_beacon,
+        uuid: u,
+        major: isLong ? kBraveridgePlusLongPressMajorBit : 0,
+        minor: 0,
+      },
+    });
+    group = {
+      address: addr,
+      buttonMap: new Map([
+        [
+          `braveridge_plus:${addr}:1`,
+          {
+            label: "ボタン1 通常押し",
+            button: mk(kBraveridgePlusUuid1, false),
+          },
+        ],
+        [
+          `braveridge_plus:${addr}:1L`,
+          {
+            label: "ボタン1 長押し",
+            button: mk(kBraveridgePlusUuid1, true),
+          },
+        ],
+        [
+          `braveridge_plus:${addr}:2`,
+          {
+            label: "ボタン2 通常押し",
+            button: mk(kBraveridgePlusUuid2, false),
+          },
+        ],
+        [
+          `braveridge_plus:${addr}:2L`,
+          {
+            label: "ボタン2 長押し",
+            button: mk(kBraveridgePlusUuid2, true),
+          },
+        ],
+      ]),
+    };
+    out.push(group);
+  }
+}
+
+function AddBraveridgeButton(
   button: { apple_i_beacon: AppleIBeacon },
   out: ButtonGroup[],
 ) {
   const id = GetButtonId(button);
-  const idPrefix = id.substr(0, id.length - 2);
+  const idPrefix = id.slice(0, -2);
   let group = out.find((x) => x.address === button.apple_i_beacon.address);
   if (!group) {
     const buttonBase = { ...button };
@@ -48,7 +110,10 @@ function AddAppleIBeacon(
             label: "1回押し",
             button: {
               ...buttonBase,
-              apple_i_beacon: { ...buttonBase.apple_i_beacon, major: 1 },
+              apple_i_beacon: {
+                ...buttonBase.apple_i_beacon,
+                major: kBraveridgeSinglePressMajor,
+              },
             },
           },
         ],
@@ -60,7 +125,7 @@ function AddAppleIBeacon(
               ...buttonBase,
               apple_i_beacon: {
                 ...buttonBase.apple_i_beacon,
-                major: 12289,
+                major: kBraveridgeDoublePressMajor,
               },
             },
           },
@@ -71,7 +136,10 @@ function AddAppleIBeacon(
             label: "長押し",
             button: {
               ...buttonBase,
-              apple_i_beacon: { ...buttonBase.apple_i_beacon, major: 4097 },
+              apple_i_beacon: {
+                ...buttonBase.apple_i_beacon,
+                major: kBraveridgeLongPressMajor,
+              },
             },
           },
         ],
@@ -138,7 +206,11 @@ function CreateButtonGroup(
   const out: ButtonGroup[] = [];
   for (const { button, command } of commands) {
     if ("apple_i_beacon" in button) {
-      AddAppleIBeacon(button, out);
+      if (IsBraveridgePlusButton(button)) {
+        AddBraveridgePlusButton(button, out);
+      } else {
+        AddBraveridgeButton(button, out);
+      }
       const group = out.find(
         (x) => x.address === button.apple_i_beacon.address,
       );
@@ -169,7 +241,11 @@ function CreateButtonGroup(
   });
   for (const button of buttons) {
     if ("apple_i_beacon" in button) {
-      AddAppleIBeacon(button, out);
+      if (IsBraveridgePlusButton(button)) {
+        AddBraveridgePlusButton(button, out);
+      } else {
+        AddBraveridgeButton(button, out);
+      }
     } else if ("m5_button" in button) {
       AddM5Button(button, out);
     } else if ("gpio_button" in button) {

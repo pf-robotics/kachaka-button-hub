@@ -11,4 +11,7 @@ void Log(const char* format, ...);
 // This must be called periodically to write the log messages to the file.
 void Update();
 
+// Clears the queue and deletes all log files from SPIFFS.
+void ClearAll();
+
 }  // namespace logging

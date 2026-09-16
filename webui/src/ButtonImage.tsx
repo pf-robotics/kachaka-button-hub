@@ -11,9 +11,11 @@ import { Bs7Square } from "react-icons/bs";
 import { Bs8Square } from "react-icons/bs";
 import { Bs9Square } from "react-icons/bs";
 
-import { Button, IsBraveridgeButton } from "./types";
+import { Button, IsBraveridgeButton, IsBraveridgePlusButton, kBraveridgePlusUuid1 } from "./types";
 import { ButtonVariantIndicator } from "./ButtonVariantIndicator";
 import BraveridgeButton from "./BraveridgeButton.svg";
+import BraveridgeButtonPlus1 from "./BraveridgeButtonPlus1.svg";
+import BraveridgeButtonPlus2 from "./BraveridgeButtonPlus2.svg";
 import M5Stack from "./M5Stack.svg";
 import M5StackBtnA from "./M5StackBtnA.svg";
 import M5StackBtnB from "./M5StackBtnB.svg";
@@ -35,6 +37,14 @@ function _ButtonImage({
           style={sizedStyle}
           alt="Braveridge button"
         />
+      );
+    }
+    if (IsBraveridgePlusButton(button)) {
+      const src = button.apple_i_beacon.uuid === kBraveridgePlusUuid1
+        ? BraveridgeButtonPlus1
+        : BraveridgeButtonPlus2;
+      return (
+        <img src={src} style={sizedStyle} alt="Braveridge button plus" />
       );
     }
     return <MdBluetoothSearching style={sizedStyle} />;

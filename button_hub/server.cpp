@@ -1,5 +1,6 @@
 #include "server.hpp"
 
+#include <atomic>
 #include <set>
 
 #include "command_table.hpp"
@@ -23,6 +24,32 @@ static AsyncWebSocket g_ws("/ws");
 static std::set<AsyncWebSocketClient*> g_ws_clients;
 static std::vector<String> g_ws_message_queue;
 static int g_ws_client_count = 0;
+static std::atomic<uint32_t> g_last_request_ms{0};
+
+static constexpr size_t kMaxTcpBufferSizeEsp32 = 5744;  // byte
+static constexpr uint32_t kUiActiveWindowMs = 3 * 60 * 1000;
+
+static void TouchActivity() { g_last_request_ms = millis(); }
+
+bool IsUiActive() {
+  const kb::LockGuard lock(g_ws_mutex);
+  return g_ws_client_count > 0 ||
+         millis() - g_last_request_ms.load() < kUiActiveWindowMs;
+}
+
+void SafeSendText(AsyncWebSocketClient* client, const String& msg) {
+  int wait_count = 0;
+  do {
+    delay(1);
+    wait_count++;
+    // Feed watchdog every 100ms to prevent timeout
+    if (wait_count % 100 == 0) {
+      yield();  // Allow other tasks to run and reset watchdog
+    }
+  } while (client->client()->space() < kMaxTcpBufferSizeEsp32 / 2);
+
+  client->text(msg);
+}
 
 void EnqueueWsMessage(String msg) {
   const kb::LockGuard lock(g_ws_mutex);
@@ -37,7 +64,7 @@ void FlushWsMessageQueue() {
     const kb::LockGuard lock(g_ws_mutex);
     for (const String& msg : g_ws_message_queue) {
       for (auto& client : g_ws_clients) {
-        client->text(msg);
+        SafeSendText(client, msg);
       }
     }
     g_ws_message_queue.clear();
@@ -48,14 +75,30 @@ static void SendAllToClient(AsyncWebSocketClient* client,
                             const RobotInfoHolder& robot_info,
                             const CommandTable& command_table) {
   const kb::LockGuard lock(g_ws_mutex);
-  client->text(to_json::ConvertHubInfo(g_ws_client_count));
-  client->text(to_json::ConvertRobotInfo(robot_info));
-  client->text(to_json::ConvertSettings(g_settings));
-  client->text(to_json::ConvertObservedButtons(
-      command_table.GetObservedButtons(), command_table.GetButtonNames()));
-  client->text(to_json::ConvertCommands(command_table.GetCommands()));
+  SafeSendText(client, to_json::ConvertHubInfo(g_ws_client_count));
+
+  if (robot_info.has_robot_version) {
+    SafeSendText(client, to_json::ConvertRobotVersion(robot_info));
+    logging::Log("Sent robot_version to client");
+  }
+  if (robot_info.has_locations) {
+    SafeSendText(client, to_json::ConvertLocations(robot_info));
+  }
+  if (robot_info.has_shelves) {
+    SafeSendText(client, to_json::ConvertShelves(robot_info));
+  }
+  if (robot_info.has_shortcuts) {
+    SafeSendText(client, to_json::ConvertShortcuts(robot_info));
+  }
+
+  SafeSendText(client, to_json::ConvertSettings(g_settings));
+
+  SafeSendText(client, to_json::ConvertObservedButtons(
+                           command_table.GetObservedButtons(),
+                           command_table.GetButtonNames()));
+  SafeSendText(client, to_json::ConvertCommands(command_table.GetCommands()));
   const auto& [scanning, wifi_ap_list] = wifi::GetLatestScannedWiFiApList();
-  client->text(to_json::ConvertWiFiApList(scanning, wifi_ap_list));
+  SafeSendText(client, to_json::ConvertWiFiApList(scanning, wifi_ap_list));
 }
 
 static void OnWebSocketEvent(AsyncWebSocket* server,
@@ -65,7 +108,7 @@ static void OnWebSocketEvent(AsyncWebSocket* server,
                              const CommandTable& command_table) {
   if (type == WS_EVT_CONNECT) {
     // client connected
-    Serial.printf("ws[%s][%u] connect\n", server->url(), client->id());
+    logging::Log("ws[%s][%u] connect", server->url(), client->id());
     {
       const kb::LockGuard lock(g_ws_mutex);
       g_ws_clients.insert(client);
@@ -80,7 +123,7 @@ static void OnWebSocketEvent(AsyncWebSocket* server,
   }
   if (type == WS_EVT_DISCONNECT) {
     // client disconnected
-    Serial.printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
+    logging::Log("ws[%s][%u] disconnect: %u", server->url(), client->id());
     int removed = 0;
     {
       const kb::LockGuard lock(g_ws_mutex);
@@ -88,21 +131,21 @@ static void OnWebSocketEvent(AsyncWebSocket* server,
       g_ws_client_count--;
     }
     if (removed != 1) {
-      Serial.printf("ERROR: Failed to remove client: %d\n", removed);
+      logging::Log("ERROR: Failed to remove client: %d", removed);
     }
     EnqueueWsMessage(to_json::ConvertHubInfo(g_ws_client_count));
     return;
   }
   if (type == WS_EVT_ERROR) {
     // error was received from the other end
-    Serial.printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(),
-                  *reinterpret_cast<uint16_t*>(arg), data);
+    logging::Log("ws[%s][%u] error(%u): %s", server->url(), client->id(),
+                 *reinterpret_cast<uint16_t*>(arg), data);
     return;
   }
   if (type == WS_EVT_PONG) {
     // pong message was received (in response to a ping request maybe)
-    Serial.printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len,
-                  len ? reinterpret_cast<char*>(data) : "");
+    logging::Log("ws[%s][%u] pong[%u]: %s", server->url(), client->id(), len,
+                 len ? reinterpret_cast<char*>(data) : "");
     return;
   }
   if (type == WS_EVT_DATA) {
@@ -110,27 +153,26 @@ static void OnWebSocketEvent(AsyncWebSocket* server,
     auto* info = reinterpret_cast<AwsFrameInfo*>(arg);
     if (info->final && info->index == 0 && info->len == len) {
       // the whole message is in a single frame and we got all of it's data
-      Serial.printf("ws[%s][%u] %s-message[%llu]: ", server->url(),
-                    client->id(), (info->opcode == WS_TEXT) ? "text" : "binary",
-                    info->len);
+      logging::Log("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(),
+                   (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
       if (info->opcode == WS_TEXT) {
         data[len] = 0;
-        Serial.printf("%s\n", data);
+        logging::Log("%s", data);
       } else {
         for (size_t i = 0; i < info->len; i++) {
-          Serial.printf("%02x ", data[i]);
+          logging::Log("%02x ", data[i]);
         }
-        Serial.printf("\n");
+        logging::Log("");
       }
       if (info->opcode == WS_TEXT) {
-        client->text("I got your text message");
+        SafeSendText(client, "I got your text message");
       } else {
         client->binary("I got your binary message");
       }
     } else {
       // message is comprised of multiple frames or the frame is split into
       // multiple packets
-      Serial.println("ERROR: Message is comprised of multiple frames");
+      logging::Log("ERROR: Message is comprised of multiple frames");
     }
     return;
   }
@@ -142,7 +184,8 @@ static void RegisterReadEntry(
   server.on(
       url, method,
       [url, handler = std::move(handler)](AsyncWebServerRequest* request) {
-        Serial.printf("%s %s\n", request->methodToString(), url);
+        logging::Log("%s %s", request->methodToString(), url);
+        TouchActivity();
         handler(request);
       });
 }
@@ -153,7 +196,8 @@ static void RegisterWriteEntry(
   server.on(
       url, method,
       [url, handler](AsyncWebServerRequest* request) {
-        Serial.printf("%s %s\n", request->methodToString(), url);
+        logging::Log("%s %s", request->methodToString(), url);
+        TouchActivity();
         // body-less request is not supported
         if (request->hasArg("body")) {
           const String& body = request->arg("body");
@@ -164,8 +208,9 @@ static void RegisterWriteEntry(
       [url, handler = std::move(handler)](AsyncWebServerRequest* request,
                                           uint8_t* data, size_t len,
                                           size_t index, size_t total) {
-        Serial.printf("%s %s (BODY: %zu, %zu, %zu)\n",
-                      request->methodToString(), url, index, len, total);
+        logging::Log("%s %s (BODY: %zu, %zu, %zu)", request->methodToString(),
+                     url, index, len, total);
+        TouchActivity();
         static String buffer;  // TODO: Use a buffer pool
         if (index == 0) {
           buffer = String(data, len);
@@ -326,8 +371,8 @@ static void SetAppHandler(AsyncWebServer& server, CommandTable& command_table) {
         HandlePutCommands(request, body, command_table);
       });
   // Ideally, it should be /commands/{id}, but since ASYNCWEBSERVER_REGEX must
-  // be enabled in order to use path variables, we will proceed with the policy
-  // of not using variables for now.
+  // be enabled in order to use path variables, we will proceed with the
+  // policy of not using variables for now.
   RegisterWriteEntry(
       server, "/commands", HTTP_DELETE,
       [&command_table](AsyncWebServerRequest* request, const String& body) {
@@ -371,7 +416,7 @@ static void SetCommonSettings(AsyncWebServer& server) {
         server.on(url_path, HTTP_GET,
                   [url_path, data, size, gz_data, gz_size,
                    mime_type](AsyncWebServerRequest* request) {
-                    Serial.printf("GET %s\n", url_path);
+                    logging::Log("GET %s", url_path);
                     bool use_gz = false;
                     if (gz_data && !data) {
                       use_gz = true;

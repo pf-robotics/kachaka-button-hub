@@ -5,6 +5,7 @@
 
 #include "beep.hpp"
 #include "gpio_button.hpp"
+#include "logging.hpp"
 #include "ota.hpp"
 #include "server.hpp"
 #include "settings.hpp"
@@ -377,6 +378,8 @@ void HandleClearAllData(AsyncWebServerRequest* request,
   g_settings.Reset();
   Serial.println("Clearing commands...");
   command_table.Reset();
+  Serial.println("Clearing logs...");
+  logging::ClearAll();
   Serial.println("Completed");
   request->send(203);
 

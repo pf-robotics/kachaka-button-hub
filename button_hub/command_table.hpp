@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <ctime>
@@ -239,6 +240,8 @@ struct ButtonCommandPair {
 
 class CommandTable {
  public:
+  static constexpr size_t kMaxRegisteredCommands = 60;
+
   CommandTable(int max_observed_buttons);
 
   CommandTable(const CommandTable&) = delete;
@@ -262,9 +265,10 @@ class CommandTable {
   bool Save();
   void Load();
   void Reset();
+  bool IsSaving() const { return saving_; }
 
  private:
-  void SetCommandLocked(const KButton& button, const Command& command);
+  bool SetCommandLocked(const KButton& button, const Command& command);
   void DeleteCommandLocked(const KButton& button);
   void SetButtonNameLocked(const KButton& button, const String& name);
   bool LoadCommandArrayLocked(const String& json);
@@ -275,6 +279,7 @@ class CommandTable {
 
   int max_observed_buttons_;
   mutable kb::Mutex mutex_;
+  std::atomic<bool> saving_{false};
   std::deque<ObservedButton> observed_buttons_;
   std::vector<ButtonCommandPair> registered_commands_;
   std::map<KButton, String> button_names_;

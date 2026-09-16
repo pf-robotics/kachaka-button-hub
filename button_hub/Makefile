@@ -24,8 +24,13 @@ data_%.cpp: ../webui/dist/%
 ../webui/dist/%: ../webui/src/*
 	cd ../webui && npm run build
 
-build: $(DATA_GENERATED_FILES) $(PB_GENERATED_FILES)
-	echo "constexpr char kVersion[] = \"$(shell git describe --tags --always --dirty)\";" > version.hpp
+version.hpp:
+ifndef VERSION
+	$(error VERSION is not set)
+endif
+	echo "constexpr char kVersion[] = \"$(VERSION)\";" > version.hpp
+
+build: $(DATA_GENERATED_FILES) $(PB_GENERATED_FILES) version.hpp
 	-@rm -f compile_commands.json
 	arduino-cli compile \
 		--fqbn $(BOARD) \
@@ -57,3 +62,5 @@ kachaka-api.pb.%: ../proto/kachaka-api.proto
 	bash -c "cd ../nanopb; source venv/bin/activate; protoc --plugin=protoc-gen-nanopb=./generator/protoc-gen-nanopb --nanopb_out=. kachaka-api.proto"
 	mv ../nanopb/kachaka-api.pb.* .
 	rm ../nanopb/kachaka-api.*
+
+.PHONY: version.hpp

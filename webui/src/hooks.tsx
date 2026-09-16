@@ -314,8 +314,24 @@ interface HubInfoMessage extends HubInfo {
   type: "hub_info";
 }
 
-interface RobotInfoMessage extends RobotInfo {
-  type: "robot_info";
+interface RobotVersionMessage {
+  type: "robot_version";
+  robot_version: string;
+}
+
+interface LocationsMessage {
+  type: "locations";
+  locations: Location[];
+}
+
+interface ShelvesMessage {
+  type: "shelves";
+  shelves: Shelf[];
+}
+
+interface ShortcutsMessage {
+  type: "shortcuts";
+  shortcuts: Shortcut[];
 }
 
 interface SettingsMessage {
@@ -358,7 +374,10 @@ interface WifiApListMessage {
 
 type WsMessage =
   | HubInfoMessage
-  | RobotInfoMessage
+  | RobotVersionMessage
+  | LocationsMessage
+  | ShelvesMessage
+  | ShortcutsMessage
   | SettingsMessage
   | ObservedButtonMessage
   | CommandsMessage
@@ -372,7 +391,7 @@ export function useKachakaButtonHub() {
     "offline" | "online" | "unstable"
   >("offline");
   const [hubInfo, setHubInfo] = useState<HubInfo>();
-  const [robotInfo, setRobotInfo] = useState<RobotInfo>();
+  const [robotInfo, setRobotInfo] = useState<RobotInfo | undefined>();
   const [settings, setSettings] = useState<Settings>();
   const [buttons, setButtons] = useState<Button[]>();
   const [commands, setCommands] =
@@ -389,9 +408,76 @@ export function useKachakaButtonHub() {
     if (parsedMessage.type === "hub_info") {
       setHubInfo(parsedMessage);
     }
-    if (parsedMessage.type === "robot_info") {
-      setRobotInfo(parsedMessage);
+
+    if (parsedMessage.type === "robot_version") {
+      setRobotInfo((prev: RobotInfo | undefined) => {
+        if (!prev) {
+          return {
+            type: "robot_info",
+            robot_version: parsedMessage.robot_version,
+            locations: undefined,  
+            shelves: undefined,
+            shortcuts: undefined,
+          };
+        }
+        return {
+          ...prev,
+          robot_version: parsedMessage.robot_version,
+        };
+      });
     }
+     if (parsedMessage.type === "locations") {
+      setRobotInfo((prev: RobotInfo | undefined) => {
+        if (!prev) {
+          return {
+            type: "robot_info",
+            robot_version: undefined,
+            locations: parsedMessage.locations,
+            shelves: undefined,
+            shortcuts: undefined,
+          };
+        }
+        return {
+          ...prev,
+          locations: parsedMessage.locations,
+        };
+      });
+    }
+    if (parsedMessage.type === "shelves") {
+      setRobotInfo((prev: RobotInfo | undefined) => {
+        if (!prev) {
+          return {
+            type: "robot_info",
+            robot_version: undefined,  
+            locations: undefined,
+            shelves: parsedMessage.shelves,
+            shortcuts: undefined,
+          };
+        }
+        return {
+          ...prev,
+          shelves: parsedMessage.shelves,
+        };
+      });
+    }
+    if (parsedMessage.type === "shortcuts") {
+      setRobotInfo((prev: RobotInfo | undefined) => {
+        if (!prev) {
+          return {
+            type: "robot_info",
+            robot_version: undefined,  
+            locations: undefined,
+            shelves: undefined,
+            shortcuts: parsedMessage.shortcuts,
+          };
+        }
+        return {
+          ...prev,
+          shortcuts: parsedMessage.shortcuts,
+        };
+      });
+    } 
+
     if (parsedMessage.type === "settings") {
       setSettings(parsedMessage.settings);
     }

@@ -31,6 +31,11 @@ static std::vector<Shelf> g_get_shelves_response;
 static std::vector<Location> g_get_locations_response;
 static std::vector<Shortcut> g_get_shortcuts_response;
 
+static constexpr int kReceiveBufferSize = 5120;
+static uint8_t g_receive_buffer[kReceiveBufferSize];
+static size_t g_receive_size = 0;
+static bool g_decode_completed = true;
+
 const char* ResultCodeToString(ResultCode code) {
   return code == api::ResultCode::kOk             ? "OK"
          : code == api::ResultCode::kNotConnected ? "Not connected"
@@ -144,33 +149,73 @@ static bool EncodeString(pb_ostream_t* stream, const pb_field_t* field,
                           strlen(static_cast<const char*>(*arg)));
 }
 
-static void CheckFlags(const int flags) {
+static bool IsReceiveCompleted(const int flags) {
   if (flags == DATA_RECV_FRAME_COMPLETE || flags == DATA_RECV_RST_STREAM) {
     g_request_finished = true;
+    return true;
   }
+  return false;
+}
+
+static bool BufferAndCheckComplete(const int flags, const char* data,
+                                   size_t len, bool* is_error) {
+  *is_error = false;
+  if (len > 0) {
+    if (g_receive_size + len > kReceiveBufferSize) {
+      logging::Log("Receive buffer overflow");
+      g_request_finished = true;
+      *is_error = true;
+      return false;
+    }
+
+    memcpy(&g_receive_buffer[g_receive_size], data, len);
+    g_receive_size += len;
+  }
+
+  if (!IsReceiveCompleted(flags)) {
+    return false;
+  }
+  if (g_receive_size == 0) {
+    return false;
+  }
+  if (g_receive_size < 5) {
+    logging::Log("Data length too short: %d", g_receive_size);
+    *is_error = true;
+    return false;
+  }
+  if (g_decode_completed) {
+    return false;
+  }
+  return true;
 }
 
 static int HandleGetRobotVersionResponse(struct sh2lib_handle* /* handle */,
                                          const char* data, size_t len,
                                          int flags) {
-  Serial.printf(" <- GetRobotVersionResponse (len=%d)\n", len);
-  CheckFlags(flags);
+  logging::Log(" <- GetRobotVersionResponse (len=%d)", len);
 
-  if (len > 0) {
-    pb_istream_t stream = pb_istream_from_buffer(
-        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
-
-    kachaka_api_GetRobotVersionResponse response =
-        kachaka_api_GetRobotVersionResponse_init_zero;
-    response.version.funcs.decode = DecodeString;
-    response.version.arg = &g_get_robot_version_response;
-
-    const int status = pb_decode(
-        &stream, kachaka_api_GetRobotVersionResponse_fields, &response);
-    if (!status) {
-      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  bool is_error = false;
+  if (BufferAndCheckComplete(flags, data, len, &is_error) == false) {
+    if (is_error) {
       return 1;
     }
+    return 0;
+  }
+
+  pb_istream_t stream =
+      pb_istream_from_buffer(&g_receive_buffer[5], g_receive_size - 5);
+
+  kachaka_api_GetRobotVersionResponse response =
+      kachaka_api_GetRobotVersionResponse_init_zero;
+  response.version.funcs.decode = DecodeString;
+  response.version.arg = &g_get_robot_version_response;
+
+  const int status =
+      pb_decode(&stream, kachaka_api_GetRobotVersionResponse_fields, &response);
+  g_decode_completed = true;
+  if (!status) {
+    logging::Log("Decoding failed: %s", PB_GET_ERROR(&stream));
+    return 1;
   }
 
   return 0;
@@ -178,54 +223,66 @@ static int HandleGetRobotVersionResponse(struct sh2lib_handle* /* handle */,
 
 static int HandleStartCommandResponse(struct sh2lib_handle* /* handle */,
                                       const char* data, size_t len, int flags) {
-  Serial.printf(" <- StartCommandResponse (len=%d)\n", len);
-  CheckFlags(flags);
+  logging::Log(" <- StartCommandResponse (len=%d)", len);
 
-  if (len > 0) {
-    pb_istream_t stream = pb_istream_from_buffer(
-        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
-
-    String command_id;
-
-    kachaka_api_StartCommandResponse response =
-        kachaka_api_StartCommandResponse_init_zero;
-    response.command_id.funcs.decode = DecodeString;
-    response.command_id.arg = &command_id;
-
-    const int status =
-        pb_decode(&stream, kachaka_api_StartCommandResponse_fields, &response);
-    if (!status) {
-      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  bool is_error = false;
+  if (BufferAndCheckComplete(flags, data, len, &is_error) == false) {
+    if (is_error) {
       return 1;
     }
-    Serial.printf("response = {success=%d, error_code=%d, command_id=\"%s\"}\n",
-                  response.result.success, response.result.error_code,
-                  command_id.c_str());
+    return 0;
   }
+
+  pb_istream_t stream =
+      pb_istream_from_buffer(&g_receive_buffer[5], g_receive_size - 5);
+
+  String command_id;
+
+  kachaka_api_StartCommandResponse response =
+      kachaka_api_StartCommandResponse_init_zero;
+  response.command_id.funcs.decode = DecodeString;
+  response.command_id.arg = &command_id;
+
+  const int status =
+      pb_decode(&stream, kachaka_api_StartCommandResponse_fields, &response);
+  g_decode_completed = true;
+  if (!status) {
+    logging::Log("Decoding failed: %s", PB_GET_ERROR(&stream));
+    return 1;
+  }
+  logging::Log("response = {success=%d, error_code=%d, command_id=\"%s\"}",
+               response.result.success, response.result.error_code,
+               command_id.c_str());
 
   return 0;
 }
 
 static int HandleGetShelvesResponse(struct sh2lib_handle* /* handle */,
                                     const char* data, size_t len, int flags) {
-  Serial.printf(" <- GetShelvesResponse (len=%d)\n", len);
-  CheckFlags(flags);
+  logging::Log(" <- GetShelvesResponse (len=%d)", len);
 
-  if (len > 0) {
-    pb_istream_t stream = pb_istream_from_buffer(
-        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
-
-    kachaka_api_GetShelvesResponse response =
-        kachaka_api_GetShelvesResponse_init_zero;
-    response.shelves.funcs.decode = DecodeRepeatedShelf;
-    response.shelves.arg = &g_get_shelves_response;
-
-    const int status =
-        pb_decode(&stream, kachaka_api_GetShelvesResponse_fields, &response);
-    if (!status) {
-      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  bool is_error = false;
+  if (BufferAndCheckComplete(flags, data, len, &is_error) == false) {
+    if (is_error) {
       return 1;
     }
+    return 0;
+  }
+
+  pb_istream_t stream =
+      pb_istream_from_buffer(&g_receive_buffer[5], g_receive_size - 5);
+
+  kachaka_api_GetShelvesResponse response =
+      kachaka_api_GetShelvesResponse_init_zero;
+  response.shelves.funcs.decode = DecodeRepeatedShelf;
+  response.shelves.arg = &g_get_shelves_response;
+
+  const int status =
+      pb_decode(&stream, kachaka_api_GetShelvesResponse_fields, &response);
+  g_decode_completed = true;
+  if (!status) {
+    logging::Log("Decoding failed: %s", PB_GET_ERROR(&stream));
+    return 1;
   }
 
   return 0;
@@ -233,24 +290,30 @@ static int HandleGetShelvesResponse(struct sh2lib_handle* /* handle */,
 
 static int HandleGetLocationsResponse(struct sh2lib_handle* /* handle */,
                                       const char* data, size_t len, int flags) {
-  Serial.printf(" <- GetLocationsResponse (len=%d)\n", len);
-  CheckFlags(flags);
+  logging::Log(" <- GetLocationsResponse (len=%d)", len);
 
-  if (len > 0) {
-    pb_istream_t stream = pb_istream_from_buffer(
-        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
-
-    kachaka_api_GetLocationsResponse response =
-        kachaka_api_GetLocationsResponse_init_zero;
-    response.locations.funcs.decode = DecodeRepeatedLocation;
-    response.locations.arg = &g_get_locations_response;
-
-    const int status =
-        pb_decode(&stream, kachaka_api_GetLocationsResponse_fields, &response);
-    if (!status) {
-      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  bool is_error = false;
+  if (BufferAndCheckComplete(flags, data, len, &is_error) == false) {
+    if (is_error) {
       return 1;
     }
+    return 0;
+  }
+
+  pb_istream_t stream =
+      pb_istream_from_buffer(&g_receive_buffer[5], g_receive_size - 5);
+
+  kachaka_api_GetLocationsResponse response =
+      kachaka_api_GetLocationsResponse_init_zero;
+  response.locations.funcs.decode = DecodeRepeatedLocation;
+  response.locations.arg = &g_get_locations_response;
+
+  const int status =
+      pb_decode(&stream, kachaka_api_GetLocationsResponse_fields, &response);
+  g_decode_completed = true;
+  if (!status) {
+    logging::Log("Decoding failed: %s", PB_GET_ERROR(&stream));
+    return 1;
   }
 
   return 0;
@@ -258,24 +321,30 @@ static int HandleGetLocationsResponse(struct sh2lib_handle* /* handle */,
 
 static int HandleGetShortcutsResponse(struct sh2lib_handle* /* handle */,
                                       const char* data, size_t len, int flags) {
-  Serial.printf(" <- GetShortcutsResponse (len=%d)\n", len);
-  CheckFlags(flags);
+  logging::Log(" <- GetShortcutsResponse (len=%d)", len);
 
-  if (len > 0) {
-    pb_istream_t stream = pb_istream_from_buffer(
-        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
-
-    kachaka_api_GetShortcutsResponse response =
-        kachaka_api_GetShortcutsResponse_init_zero;
-    response.shortcuts.funcs.decode = DecodeRepeatedShortcut;
-    response.shortcuts.arg = &g_get_shortcuts_response;
-
-    const int status =
-        pb_decode(&stream, kachaka_api_GetShortcutsResponse_fields, &response);
-    if (!status) {
-      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  bool is_error = false;
+  if (BufferAndCheckComplete(flags, data, len, &is_error) == false) {
+    if (is_error) {
       return 1;
     }
+    return 0;
+  }
+
+  pb_istream_t stream =
+      pb_istream_from_buffer(&g_receive_buffer[5], g_receive_size - 5);
+
+  kachaka_api_GetShortcutsResponse response =
+      kachaka_api_GetShortcutsResponse_init_zero;
+  response.shortcuts.funcs.decode = DecodeRepeatedShortcut;
+  response.shortcuts.arg = &g_get_shortcuts_response;
+
+  const int status =
+      pb_decode(&stream, kachaka_api_GetShortcutsResponse_fields, &response);
+  g_decode_completed = true;
+  if (!status) {
+    logging::Log("Decoding failed: %s", PB_GET_ERROR(&stream));
+    return 1;
   }
 
   return 0;
@@ -283,25 +352,31 @@ static int HandleGetShortcutsResponse(struct sh2lib_handle* /* handle */,
 
 static int HandleProceedResponse(struct sh2lib_handle* /* handle */,
                                  const char* data, size_t len, int flags) {
-  Serial.printf(" <- HandleProceedResponse (len=%d)\n", len);
-  CheckFlags(flags);
+  logging::Log(" <- HandleProceedResponse (len=%d)", len);
 
-  if (len > 0) {
-    pb_istream_t stream = pb_istream_from_buffer(
-        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
-
-    kachaka_api_StartCommandResponse response =
-        kachaka_api_StartCommandResponse_init_zero;
-
-    const int status =
-        pb_decode(&stream, kachaka_api_StartCommandResponse_fields, &response);
-    if (!status) {
-      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  bool is_error = false;
+  if (BufferAndCheckComplete(flags, data, len, &is_error) == false) {
+    if (is_error) {
       return 1;
     }
-    Serial.printf("response = {success=%d, error_code=%d}\n",
-                  response.result.success, response.result.error_code);
+    return 0;
   }
+
+  pb_istream_t stream =
+      pb_istream_from_buffer(&g_receive_buffer[5], g_receive_size - 5);
+
+  kachaka_api_StartCommandResponse response =
+      kachaka_api_StartCommandResponse_init_zero;
+
+  const int status =
+      pb_decode(&stream, kachaka_api_StartCommandResponse_fields, &response);
+  g_decode_completed = true;
+  if (!status) {
+    logging::Log("Decoding failed: %s", PB_GET_ERROR(&stream));
+    return 1;
+  }
+  logging::Log("response = {success=%d, error_code=%d}",
+               response.result.success, response.result.error_code);
 
   return 0;
 }
@@ -309,25 +384,31 @@ static int HandleProceedResponse(struct sh2lib_handle* /* handle */,
 static int HandleStartShortcutCommandResponse(
     struct sh2lib_handle* /* handle */, const char* data, size_t len,
     int flags) {
-  Serial.printf(" <- HandleStartShortcutCommandResponse (len=%d)\n", len);
-  CheckFlags(flags);
+  logging::Log(" <- HandleStartShortcutCommandResponse (len=%d)", len);
 
-  if (len > 0) {
-    pb_istream_t stream = pb_istream_from_buffer(
-        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
-
-    kachaka_api_StartShortcutCommandResponse response =
-        kachaka_api_StartShortcutCommandResponse_init_zero;
-
-    const int status = pb_decode(
-        &stream, kachaka_api_StartShortcutCommandResponse_fields, &response);
-    if (!status) {
-      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  bool is_error = false;
+  if (BufferAndCheckComplete(flags, data, len, &is_error) == false) {
+    if (is_error) {
       return 1;
     }
-    Serial.printf("response = {success=%d, error_code=%d}\n",
-                  response.result.success, response.result.error_code);
+    return 0;
   }
+
+  pb_istream_t stream =
+      pb_istream_from_buffer(&g_receive_buffer[5], g_receive_size - 5);
+
+  kachaka_api_StartShortcutCommandResponse response =
+      kachaka_api_StartShortcutCommandResponse_init_zero;
+
+  const int status = pb_decode(
+      &stream, kachaka_api_StartShortcutCommandResponse_fields, &response);
+  g_decode_completed = true;
+  if (!status) {
+    logging::Log("Decoding failed: %s", PB_GET_ERROR(&stream));
+    return 1;
+  }
+  logging::Log("response = {success=%d, error_code=%d}",
+               response.result.success, response.result.error_code);
 
   return 0;
 }
@@ -335,25 +416,31 @@ static int HandleStartShortcutCommandResponse(
 static int HandleCancelCommandResponse(struct sh2lib_handle* /* handle */,
                                        const char* data, size_t len,
                                        int flags) {
-  Serial.printf(" <- HandleCancelCommandResponse (len=%d)\n", len);
-  CheckFlags(flags);
+  logging::Log(" <- HandleCancelCommandResponse (len=%d)", len);
 
-  if (len > 0) {
-    pb_istream_t stream = pb_istream_from_buffer(
-        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
-
-    kachaka_api_CancelCommandResponse response =
-        kachaka_api_CancelCommandResponse_init_zero;
-
-    const int status =
-        pb_decode(&stream, kachaka_api_StartCommandResponse_fields, &response);
-    if (!status) {
-      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  bool is_error = false;
+  if (BufferAndCheckComplete(flags, data, len, &is_error) == false) {
+    if (is_error) {
       return 1;
     }
-    Serial.printf("response = {success=%d, error_code=%d}\n",
-                  response.result.success, response.result.error_code);
+    return 0;
   }
+
+  pb_istream_t stream =
+      pb_istream_from_buffer(&g_receive_buffer[5], g_receive_size - 5);
+
+  kachaka_api_CancelCommandResponse response =
+      kachaka_api_CancelCommandResponse_init_zero;
+
+  const int status =
+      pb_decode(&stream, kachaka_api_StartCommandResponse_fields, &response);
+  g_decode_completed = true;
+  if (!status) {
+    logging::Log("Decoding failed: %s", PB_GET_ERROR(&stream));
+    return 1;
+  }
+  logging::Log("response = {success=%d, error_code=%d}",
+               response.result.success, response.result.error_code);
 
   return 0;
 }
@@ -361,25 +448,31 @@ static int HandleCancelCommandResponse(struct sh2lib_handle* /* handle */,
 static int HandleSetEmergencyStopResponse(struct sh2lib_handle* /* handle */,
                                           const char* data, size_t len,
                                           int flags) {
-  Serial.printf(" <- HandleSetEmergencyStopResponse (len=%d)\n", len);
-  CheckFlags(flags);
+  logging::Log(" <- HandleSetEmergencyStopResponse (len=%d)", len);
 
-  if (len > 0) {
-    pb_istream_t stream = pb_istream_from_buffer(
-        reinterpret_cast<const uint8_t*>(&data[5]), len - 5);
-
-    kachaka_api_SetEmergencyStopResponse response =
-        kachaka_api_SetEmergencyStopResponse_init_zero;
-
-    const int status = pb_decode(
-        &stream, kachaka_api_SetEmergencyStopResponse_fields, &response);
-    if (!status) {
-      Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  bool is_error = false;
+  if (BufferAndCheckComplete(flags, data, len, &is_error) == false) {
+    if (is_error) {
       return 1;
     }
-    Serial.printf("response = {success=%d, error_code=%d}\n",
-                  response.result.success, response.result.error_code);
+    return 0;
   }
+
+  pb_istream_t stream =
+      pb_istream_from_buffer(&g_receive_buffer[5], g_receive_size - 5);
+
+  kachaka_api_SetEmergencyStopResponse response =
+      kachaka_api_SetEmergencyStopResponse_init_zero;
+
+  const int status = pb_decode(
+      &stream, kachaka_api_SetEmergencyStopResponse_fields, &response);
+  g_decode_completed = true;
+  if (!status) {
+    logging::Log("Decoding failed: %s", PB_GET_ERROR(&stream));
+    return 1;
+  }
+  logging::Log("response = {success=%d, error_code=%d}",
+               response.result.success, response.result.error_code);
 
   return 0;
 }
@@ -391,7 +484,7 @@ static bool EncodeProtoBufMessage(uint8_t* buffer, const int buffer_size,
 
   const bool status = pb_encode(&stream, fields, message);
   if (!status) {
-    Serial.printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+    logging::Log("Encoding failed: %s", PB_GET_ERROR(&stream));
     return false;
   }
 
@@ -410,7 +503,7 @@ static void SendGrpcRequestAndWait(
   char path[64];
   char len[8];
 
-  Serial.printf("--> %s\n", service);
+  logging::Log("--> %s", service);
 
   snprintf(path, sizeof(path), "/kachaka_api.KachakaApi/%s", service);
   snprintf(len, sizeof(len), "%d", g_send_size);
@@ -426,12 +519,16 @@ static void SendGrpcRequestAndWait(
   };
 
   g_request_finished = false;
+  g_decode_completed = false;
+  g_receive_size = 0;
+  memset(g_receive_buffer, 0, sizeof(g_receive_buffer));
+
   sh2lib_do_putpost_with_nv(hd, nva, sizeof(nva) / sizeof(nva[0]), OnSendData,
                             response_callback);
 
   while (!g_request_finished) {
     if (sh2lib_execute(hd) != ESP_OK) {
-      Serial.println("Error in execute");
+      logging::Log("Error in execute");
       break;
     }
     delay(20);
@@ -460,11 +557,11 @@ static void SendGrpcTask(void* param) {
   };
 
   if (sh2lib_connect(&config, &hd) != ESP_OK) {
-    Serial.println("Error connecting to HTTP2 server");
+    logging::Log("Error connecting to HTTP2 server");
 
     g_result_code = ResultCode::kNotConnected;
   } else {
-    Serial.println("Connected to HTTP2 server");
+    logging::Log("Connected to HTTP2 server");
 
     SendGrpcRequestAndWait(&hd, service->service_name,
                            service->response_callback);

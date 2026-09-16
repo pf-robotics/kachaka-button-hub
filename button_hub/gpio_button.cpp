@@ -1,11 +1,13 @@
 #include "gpio_button.hpp"
 
-#include <M5Unified.h>
+#include "settings.hpp"
 
 namespace gpio_button {
 
-static constexpr std::array<int, 6> kGpioButtonPins = {16, 17, 2, 5, 35, 36};
-
+static constexpr std::array<int, 6> kGpioButtonPinsBasic = {16, 17, 2,
+                                                            5,  35, 36};
+static constexpr std::array<int, 6> kGpioButtonPinsCore2 = {13, 14, 32,
+                                                            33, 35, 36};
 constexpr uint64_t kButtonPushIgnoreDurationMs = 50;
 
 class ButtonImpl {
@@ -65,7 +67,10 @@ bool ButtonImpl::PopButtonPushEvent() {
 }
 
 void Register(CommandTable& command_table) {
-  for (const int pin : kGpioButtonPins) {
+  const auto& kGpioButtonPins =
+      g_settings.GetIsCore2() ? kGpioButtonPinsCore2 : kGpioButtonPinsBasic;
+
+  for (int pin : kGpioButtonPins) {
     g_gpio_buttons.emplace_back(pin);
   }
   for (ButtonImpl& button : g_gpio_buttons) {

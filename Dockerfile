@@ -16,7 +16,7 @@ RUN arduino-cli lib install \
         ArduinoJson@7.1.0 \
         ESPAsyncWebServer@3.1.0 \
         ESPping@1.0.4 \
-        M5Unified@0.1.16 \
+        M5Unified@0.2.7 \
         NimBLE-Arduino@1.4.3 \
         TickTwo@4.4.0
 
@@ -43,4 +43,3 @@ COPY proto /workspace/proto
 COPY tools /workspace/tools
 RUN ln -s /workspace/nanopb ~/Arduino/libraries/nanopb
 WORKDIR /workspace/button_hub
-RUN make build

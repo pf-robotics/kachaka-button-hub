@@ -1,5 +1,7 @@
 #include "from_json.hpp"
 
+#include "braveridge.hpp"
+
 namespace from_json {
 
 bool ConvertCommandJson(JsonObject& root, KButton& out_button,
@@ -261,6 +263,7 @@ bool ConvertButtonJson(JsonObject json, KButton& out) {
     DeserializeUuidToString(uuid.c_str(), uuid.length(), beacon.uuid);
     beacon.major = major;
     beacon.minor = minor;
+    braveridge::NormalizeAppleIBeacon(beacon);
     out = KButton(beacon);
     return true;
   }

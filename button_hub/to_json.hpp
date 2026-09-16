@@ -12,7 +12,12 @@
 namespace to_json {
 
 String ConvertHubInfo(const int client_count);
-String ConvertRobotInfo(const RobotInfoHolder& robot_info);
+
+String ConvertLocations(const RobotInfoHolder& robot_info);
+String ConvertShelves(const RobotInfoHolder& robot_info);
+String ConvertShortcuts(const RobotInfoHolder& robot_info);
+String ConvertRobotVersion(const RobotInfoHolder& robot_info);
+
 String ConvertSettings(const Settings& settings);
 String ConvertWiFiApList(bool scanning,
                          const std::vector<wifi::WiFiAp>& wifi_ap_list);

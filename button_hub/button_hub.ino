@@ -9,6 +9,7 @@
 #include "bluetooth.hpp"
 #include "bluetooth_beacon.hpp"
 #include "bluetooth_peripheral.hpp"
+#include "braveridge.hpp"
 #include "command_table.hpp"
 #include "fetch_state.hpp"
 #include "gpio_button.hpp"
@@ -34,6 +35,7 @@ constexpr int kMaxAutoOtaTrialCount = 3;
 constexpr int kBluetoothBeaconSetupIntervalMsec = 1 * 1000;
 constexpr int kWiFiSignalUpdateIntervalMSec = 1 * 1000;
 constexpr int kRebootCheckIntervalMSec = 60 * 1000;
+constexpr int kMaxRebootDeferMSec = 30 * 60 * 1000;
 constexpr int kDrawClockIntervalMSec = 2 * 1000;
 constexpr int kCountDownRebootIntervalMSec = 1 * 1000;
 
@@ -54,24 +56,20 @@ static std::map<KButton, time_t> g_last_beacon_time;
 kb::Mutex g_button_queue_mutex;
 static std::deque<std::pair<KButton, double>> g_button_queue;
 
-bool IsBraveridgeBeacon(const uint8_t uuid[16]) {
-  for (int i = 0; i < sizeof(uuid); i++) {
-    if (uuid[i] != i) {
-      return false;
-    }
-  }
-  return true;
-}
+constexpr int kUuidLength = braveridge::kUuidLength;
 
 static void BeaconCallback(const char* name, const uint8_t address[6],
-                           const uint8_t uuid[16], const uint16_t major,
-                           const uint16_t minor, const int8_t tx_power,
-                           const int rssi) {
-  if (!IsBraveridgeBeacon(uuid)) {
+                           const uint8_t uuid[kUuidLength],
+                           const uint16_t major, const uint16_t minor,
+                           const int8_t tx_power, const int rssi) {
+  if (!braveridge::IsPlusUuid(uuid) && !braveridge::IsBraveridgeUuid(uuid)) {
     return;
   }
 
-  const KButton button(AppleIBeacon(address, uuid, major, minor));
+  AppleIBeacon beacon(address, uuid, major, minor);
+  braveridge::NormalizeAppleIBeacon(beacon);
+
+  const KButton button(beacon);
   bool accept = true;
   {
     const time_t now = time(nullptr);
@@ -156,28 +154,58 @@ static void SendWifiRssi() {
       "{\"type\":\"wifi_rssi\",\"wifi_rssi\":" + String(rssi) + "}");
 }
 
+// Defers a maintenance reboot while the UI/API is in use or a save is in
+// progress. Deferral is capped at kMaxRebootDeferMSec so a client left
+// connected cannot suppress recovery forever; a save is always waited for.
+static bool ShouldDeferReboot(const char* reason) {
+  static int64_t first_deferred_time = -1;
+  const bool saving = g_command_table.IsSaving();
+  if (!saving && !server::IsUiActive()) {
+    first_deferred_time = -1;
+    return false;
+  }
+  const int64_t now = millis();
+  if (first_deferred_time < 0) {
+    first_deferred_time = now;
+  }
+  if (!saving && now - first_deferred_time > kMaxRebootDeferMSec) {
+    logging::Log("Reboot deferral expired (%s)", reason);
+    first_deferred_time = -1;
+    return false;
+  }
+  logging::Log("Reboot deferred (%s): %s", reason,
+               saving ? "saving" : "UI/API active");
+  return true;
+}
+
 static void CheckReboot() {
   // a.m. 5:00
   static int prev_hour = -1;
+  static bool daily_reboot_pending = false;
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo, 10)) {
     return;
   }
   if (prev_hour == 4 && timeinfo.tm_hour == 5) {
+    daily_reboot_pending = true;
+  }
+  prev_hour = timeinfo.tm_hour;
+  if (daily_reboot_pending && !ShouldDeferReboot("a.m. 5")) {
+    daily_reboot_pending = false;
     screen::DrawWhiteTextWithBlackScreen({"朝5時の定期再起動", "を実行します"});
     logging::Log("Rebooting due to a.m. 5 ...");
     logging::Update();
     delay(1000);
     ESP.restart();
   }
-  prev_hour = timeinfo.tm_hour;
 
   // WiFi connection
   static int64_t last_connected_time = millis();
   if (WiFi.status() == WL_CONNECTED) {
     last_connected_time = millis();
   } else {
-    if (millis() - last_connected_time > 3 * 60 * 1000) {
+    if (millis() - last_connected_time > 3 * 60 * 1000 &&
+        !ShouldDeferReboot("disconnection")) {
       screen::DrawWhiteTextWithBlackScreen(
           {"Wi-Fi接続が切れたまま", "復帰できないので", "再起動します"});
       logging::Log("Rebooting due to disconnection ...");
@@ -190,7 +218,8 @@ static void CheckReboot() {
   if (!g_settings.GetNoKachakaMode()) {
     // Fetch
     if (!fetch_state::IsCompleted() &&
-        fetch_state::GetDurationFromLastStart() > 3 * 60 * 1000) {
+        fetch_state::GetDurationFromLastStart() > 3 * 60 * 1000 &&
+        !ShouldDeferReboot("fetch timeout")) {
       screen::DrawWhiteTextWithBlackScreen(
           {"ロボットからの情報取得", "が長引いているので", "再起動します"});
       logging::Log("Rebooting due to fetch timeout ...");
@@ -200,7 +229,8 @@ static void CheckReboot() {
     }
 
     // Ping
-    if (ping_to_robot::GetDurationFromLastSuccess() > 3 * 60 * 1000) {
+    if (ping_to_robot::GetDurationFromLastSuccess() > 3 * 60 * 1000 &&
+        !ShouldDeferReboot("ping failure")) {
       screen::DrawWhiteTextWithBlackScreen(
           {"ロボットへのpingが", "失敗し続けているので", "再起動します"});
       logging::Log("Rebooting due to ping failure ...");
@@ -209,11 +239,6 @@ static void CheckReboot() {
       ESP.restart();
     }
   }
-
-  // Stats
-  Serial.printf("Free heap: now=%6.1f kb, min=%6.1f kb\n",
-                esp_get_free_heap_size() / 1000.0,
-                esp_get_minimum_free_heap_size() / 1000.0);
 }
 
 static void CountDownReboot() {
@@ -229,7 +254,17 @@ static void CountDownReboot() {
 }
 
 static void InitSpiffs() {
-  if (!SPIFFS.begin(/* format_spiffs_if_failed= */ false)) {
+  constexpr int kSpiffsRetryMax = 3;
+  bool spiffs_ok = false;
+  for (int i = 0; i < kSpiffsRetryMax; i++) {
+    if (SPIFFS.begin(/* format_spiffs_if_failed= */ false)) {
+      spiffs_ok = true;
+      break;
+    }
+    Serial.printf("SPIFFS.begin failed (attempt %d)\n", i + 1);
+    delay(100);
+  }
+  if (!spiffs_ok) {
     M5.Lcd.println("");
     M5.Lcd.setTextFont(4);
     M5.Lcd.setTextColor(TFT_RED);
@@ -269,6 +304,7 @@ static InitialSetup g_initial_setup;
 void setup() {
   auto cfg = M5.config();
   M5.begin(cfg);
+
   M5.Power.begin();
   M5.Lcd.setTextFont(2);
   M5.Lcd.println(kVersion);
@@ -282,6 +318,18 @@ void setup() {
     Serial.println("Failed to open preferences");
   }
   g_settings.Begin(&g_prefs);
+
+  auto board = M5.getBoard();
+  switch (board) {
+    case m5::board_t::board_M5StackCore2:
+      g_settings.SetIsCore2(true);
+      break;
+    case m5::board_t::board_M5Stack:
+    default:
+      g_settings.SetIsCore2(false);
+      break;
+  }
+  M5.Lcd.println(g_settings.GetIsCore2() ? "M5 Core2" : "M5");
 
   beep::Begin(g_settings.GetBeepVolume());
   screen::Begin(g_settings.GetScreenBrightness());
@@ -396,7 +444,7 @@ static void SetupOta() {
       [](ota::Error error) {  // on_error
         screen::DrawOtaError(error);
         if (error == ota::Error::kWatchdogNow) {
-          Serial.printf("OTA fail count: %d\n", g_settings.GetOtaFailCount());
+          logging::Log("OTA fail count: %d\n", g_settings.GetOtaFailCount());
           beep::PlayOtaFailed();
           delay(1000);
           ESP.restart();

@@ -93,6 +93,7 @@ enum LocationType {
   LOCATION_TYPE_UNSPECIFIED = 0;  // normal location
   LOCATION_TYPE_CHARGER = 1;
   LOCATION_TYPE_SHELF_HOME = 2;
+  LOCATION_TYPE_SLAM_MARKER = 3;
 }
 
 message Location {
@@ -103,6 +104,12 @@ message Location {
   bool undock_shelf_aligning_to_wall = 5;
   bool undock_shelf_avoiding_obstacles = 6;
   bool ignore_voice_recognition = 7;
+}
+
+message LocationDigest {
+  string id = 1;
+  string name = 2;
+  LocationType type = 3;
 }
 
 message ShelfSize {
@@ -140,6 +147,11 @@ message Shelf {
   string home_location_id = 8;
   ShelfSpeedMode speed_mode = 9;
   bool ignore_voice_recognition = 10;
+}
+
+message ShelfDigest {
+  string id = 1;
+  string name = 2;
 }
 
 message RosImu {
@@ -254,12 +266,15 @@ message Command {
     RotateInPlaceCommand rotate_in_place_command = 17;
     // DockAnyShelfWithRegistrationCommand is available only in Kachaka Pro.
     DockAnyShelfWithRegistrationCommand dock_any_shelf_with_registration_command = 18;
+    LocalizeCommand localize_command = 19;
+    MoveByVelocityWithMutedSensorsCommand move_by_velocity_with_muted_sensors_command = 22;
   }
 }
 
 message MoveShelfCommand {
   string target_shelf_id = 1;
   string destination_location_id = 2;
+  bool undock_on_destination = 3;
 }
 
 message ReturnShelfCommand {
@@ -275,6 +290,7 @@ message UndockShelfCommand {
 
 message MoveToLocationCommand {
   string target_location_id = 1;
+  string source_location_id = 2;
 }
 
 message ReturnHomeCommand {
@@ -299,6 +315,8 @@ message LockCommand {
 
 message MoveForwardCommand {
   double distance_meter = 1;
+  double speed = 2;  // [m/s]
+  bool mute_sensors = 3;
 }
 
 message RotateInPlaceCommand {
@@ -308,6 +326,14 @@ message RotateInPlaceCommand {
 message DockAnyShelfWithRegistrationCommand {
   string target_location_id = 1;
   bool dock_forward = 2;
+}
+
+message LocalizeCommand {
+}
+
+message MoveByVelocityWithMutedSensorsCommand {
+  double signed_velocity = 1;  // [m/s]
+  double move_duration_sec = 2;
 }
 
 enum CommandState {
@@ -447,6 +473,10 @@ message GetTofCameraRosCompressedImageResponse {
   bool is_available = 3;
 }
 
+message IsReadyResponse {
+  bool ready = 1;
+}
+
 message LockOnEnd {
   double duration_sec = 1;
 }
@@ -494,9 +524,19 @@ message GetLocationsResponse {
   string default_location_id = 3;
 }
 
+message GetLocationsDigestResponse {
+  Metadata metadata = 1;
+  repeated LocationDigest locations = 2;
+}
+
 message GetShelvesResponse {
   Metadata metadata = 1;
   repeated Shelf shelves = 2;
+}
+
+message GetShelvesDigestResponse {
+  Metadata metadata = 1;
+  repeated ShelfDigest shelves = 2;
 }
 
 message GetMovingShelfIdResponse {
@@ -644,6 +684,17 @@ message ImportMapResponse {
   string map_id = 2;
 }
 
+message ImportImageAsMapRequest {
+  bytes data = 1;
+  Pose charger_pose = 2;
+  double resolution = 3;
+}
+
+message ImportImageAsMapResponse {
+  Result result = 1;
+  string map_id = 2;
+}
+
 message Shortcut {
   string id = 1;
   string name = 3;
@@ -724,6 +775,7 @@ service KachakaApi {
   rpc GetTofCameraRosCompressedImage (GetRequest) returns (GetTofCameraRosCompressedImageResponse);
   rpc GetRobotErrorCodeJson (EmptyRequest) returns (GetRobotErrorCodeJsonResponse);
   rpc GetError (GetRequest) returns (GetErrorResponse);
+  rpc IsReady (EmptyRequest) returns (IsReadyResponse);  // This rpc always returns immediately
   // Commands
   rpc StartCommand (StartCommandRequest) returns (StartCommandResponse);
   rpc CancelCommand (EmptyRequest) returns (CancelCommandResponse);
@@ -732,8 +784,10 @@ service KachakaApi {
   rpc Proceed (EmptyRequest) returns (ProceedResponse);
   // Locations
   rpc GetLocations (GetRequest) returns (GetLocationsResponse);
+  rpc GetLocationsDigest (GetRequest) returns (GetLocationsDigestResponse);
   // Shelves
   rpc GetShelves (GetRequest) returns (GetShelvesResponse);
+  rpc GetShelvesDigest (GetRequest) returns (GetShelvesDigestResponse);
   rpc GetMovingShelfId (GetRequest) returns (GetMovingShelfIdResponse);
   rpc ResetShelfPose (ResetShelfPoseRequest) returns (ResetShelfPoseResponse);
   // Auto homing
@@ -753,6 +807,7 @@ service KachakaApi {
   rpc SwitchMap (SwitchMapRequest) returns (SwitchMapResponse);
   rpc ExportMap (ExportMapRequest) returns (stream ExportMapResponse);
   rpc ImportMap (stream ImportMapRequest) returns (ImportMapResponse);
+  rpc ImportImageAsMap (stream ImportImageAsMapRequest) returns (ImportImageAsMapResponse);
   // Shortcut
   rpc GetShortcuts (GetRequest) returns (GetShortcutsResponse);
   rpc StartShortcutCommand (StartShortcutCommandRequest) returns (StartShortcutCommandResponse);

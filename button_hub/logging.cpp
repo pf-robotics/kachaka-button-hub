@@ -8,9 +8,13 @@
 
 #include "mutex.hpp"
 
+// #define SERIAL_DEBUG        // if defined, also output logs to Serial
+// #define NO_LOGGING_TO_FILE  // if defined, do not log to file
+
 namespace logging {
 
 constexpr int kMaxLogFileCount = 30;
+constexpr int kMaxQueueSize = 20;
 
 static String g_filename;
 
@@ -98,12 +102,19 @@ void Log(const char* format, ...) {
     vsnprintf(&line[header_size], needed + 1, format, args);
     va_end(args);
   }
-  line += '\n';
+  line += "\r\n";
 
+#ifdef SERIAL_DEBUG
   Serial.print(line);
+#endif
+#ifndef NO_LOGGING_TO_FILE
   if (kb::LockGuard lock(g_mutex); lock) {
+    if (g_queue.size() >= kMaxQueueSize) {
+      g_queue.pop_front();
+    }
     g_queue.push_back(std::move(line));
   }
+#endif
 }
 
 void Update() {
@@ -130,6 +141,13 @@ void Update() {
       Serial.println("logging: File is not opened");
     }
   }
+}
+
+void ClearAll() {
+  const kb::LockGuard lock(g_mutex);
+  g_queue.clear();
+  RemoveOldLogsKeepingLastNItems(0);
+  g_filename = "";
 }
 
 }  // namespace logging

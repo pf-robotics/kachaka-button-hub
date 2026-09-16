@@ -38,6 +38,7 @@ void Settings::Begin(Preferences* prefs) {
   gpio_button_is_enabled_ =
       prefs_->getBool("gpio_button", kDefaultGpioButtonIsEnabled);
   no_kachaka_mode_ = prefs_->getBool("no_kachaka", kDefaultNoKachakaMode);
+  is_core2_ = prefs_->getBool("is_core2", false);
 
   Serial.printf(
       "Network: ssid=\"%s\", pass=XXXX, ip=\"%s\", gw=\"%s\", "
@@ -47,10 +48,10 @@ void Settings::Begin(Preferences* prefs) {
       ntp_server_.c_str());
   Serial.printf(
       "Settings: host=\"%s\", beep=%d, brightness=%d, auto_ota=%d, "
-      "auto_refetch=%d, gpio_button=%d, no_kachaka=%d\n",
+      "auto_refetch=%d, gpio_button=%d, no_kachaka=%d, is_core2=%d\n",
       robot_host_.c_str(), beep_volume_, screen_brightness_,
       auto_ota_is_enabled_, auto_refetch_on_ui_load_, gpio_button_is_enabled_,
-      no_kachaka_mode_);
+      no_kachaka_mode_, is_core2_);
   Serial.printf(
       "OTA settings: ota_endpoint=\"%s\", ota_label=\"%s\", "
       "reboot_ota_url=\"%s\", auto_ota=%d, one_shot_auto_ota=%d\n",
@@ -144,6 +145,11 @@ bool Settings::GetGpioButtonIsEnabled() const {
 bool Settings::GetNoKachakaMode() const {
   Check();
   return no_kachaka_mode_;
+}
+
+bool Settings::GetIsCore2() const {
+  Check();
+  return is_core2_;
 }
 
 const char* Settings::GetOtaEndpoint() const {
@@ -256,6 +262,14 @@ void Settings::SetNoKachakaMode(const bool enable) {
   Check();
   no_kachaka_mode_ = enable;
   prefs_->putBool("no_kachaka", enable);
+}
+
+void Settings::SetIsCore2(const bool is_core2) {
+  Check();
+  if (is_core2_ == is_core2)
+    return;
+  is_core2_ = is_core2;
+  prefs_->putBool("is_core2", is_core2);
 }
 
 int Settings::GetNextButtonId() {

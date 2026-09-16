@@ -26,10 +26,19 @@ static bool IsKachakaSerialNumber(const String& name) {
           std::isdigit(name[1]) && std::isdigit(name[2]));
 }
 
+static bool IsKachakaEvoSerialNumber(const String& name){
+  return (name.length() == 9 && std::toupper(name[0]) == 'K' &&
+          std::toupper(name[1]) == 'E');
+}
+
 String GetIpAddressIfPossible(const String& hostname, const bool debug_print) {
   String hostname_for_query = hostname;
   if (IsKachakaSerialNumber(hostname)) {
     hostname_for_query = "kachaka-" + hostname + ".local";
+  }
+
+  if(IsKachakaEvoSerialNumber(hostname)) {
+    hostname_for_query = hostname + ".local";
   }
 
   if (debug_print) {

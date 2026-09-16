@@ -27,66 +27,106 @@ String ConvertHubInfo(const int client_count) {
   return out;
 }
 
-String ConvertRobotInfo(const RobotInfoHolder& robot_info) {
+String ConvertRobotVersion(const RobotInfoHolder& robot_info) {
   // {
   //   "type": "robot_info",
   //   "robot_version": "1.0.0",
+  // }
+  JsonDocument doc;
+  doc["type"] = "robot_version";
+  if (robot_info.has_robot_version) {
+    doc["robot_version"] = robot_info.robot_version;
+  }
+
+  String out;
+  serializeJson(doc, out);
+  return out;
+}
+
+String ConvertLocations(const RobotInfoHolder& robot_info) {
+  // {
+  //   "type": "locations",
+  //   "locations": [
+  //     {
+  //       "id": "location1",
+  //       "name": "Location 1",
+  //       "type": "charger"
+  //     },
+  //     ...
+  //   ]
+  // }
+  JsonDocument doc;
+  doc["type"] = "locations";
+
+  JsonArray locations_array = doc.createNestedArray("locations");
+  if (!locations_array.isNull() && robot_info.has_locations) {
+    for (const Location& location : robot_info.locations) {
+      JsonObject location_json = locations_array.createNestedObject();
+      if (!location_json.isNull()) {
+        location_json["id"] = location.id;
+        location_json["name"] = location.name;
+        location_json["type"] = GetLocationTypeString(location.type);
+      }
+    }
+  }
+
+  String out;
+  serializeJson(doc, out);
+  return out;
+}
+
+String ConvertShelves(const RobotInfoHolder& robot_info) {
+  // {
+  //   "type": "shelves",
   //   "shelves": [
   //     {
   //       "id": "shelf1",
   //       "name": "Shelf 1"
   //     },
-  //     {
-  //       ...
-  //     }
-  //   ],
-  //   "locations": [
-  //     {
-  //       "id": "location1",
-  //       "name": "Location 1"
-  //     },
-  //     {
-  //       ...
-  //     }
+  //     ...
   //   ]
+  // }
+  JsonDocument doc;
+  doc["type"] = "shelves";
+
+  JsonArray shelves_array = doc.createNestedArray("shelves");
+  if (!shelves_array.isNull() && robot_info.has_shelves) {
+    for (const Shelf& shelf : robot_info.shelves) {
+      JsonObject shelf_json = shelves_array.createNestedObject();
+      if (!shelf_json.isNull()) {
+        shelf_json["id"] = shelf.id;
+        shelf_json["name"] = shelf.name;
+      }
+    }
+  }
+
+  String out;
+  serializeJson(doc, out);
+  return out;
+}
+
+String ConvertShortcuts(const RobotInfoHolder& robot_info) {
+  // {
+  //   "type": "shortcuts",
   //   "shortcuts": [
   //     {
   //       "id": "shortcut1",
   //       "name": "Shortcut 1"
   //     },
-  //     {
-  //       ...
-  //     }
+  //     ...
   //   ]
   // }
   JsonDocument doc;
-  doc["type"] = "robot_info";
-  if (robot_info.has_robot_version) {
-    doc["robot_version"] = robot_info.robot_version;
-  }
-  if (robot_info.has_shelves) {
-    doc["shelves"] = JsonArray();
-    for (const Shelf& shelf : robot_info.shelves) {
-      JsonObject shelf_json = doc["shelves"].createNestedObject();
-      shelf_json["id"] = shelf.id;
-      shelf_json["name"] = shelf.name;
-    }
-  }
-  if (robot_info.has_locations) {
-    doc["locations"] = JsonArray();
-    for (const Location& location : robot_info.locations) {
-      JsonObject location_json = doc["locations"].createNestedObject();
-      location_json["id"] = location.id;
-      location_json["name"] = location.name;
-      location_json["type"] = GetLocationTypeString(location.type);
-    }
-  }
-  if (robot_info.has_shortcuts) {
-    doc["shortcuts"] = JsonArray();
+  doc["type"] = "shortcuts";
+
+  JsonArray shortcuts_array = doc.createNestedArray("shortcuts");
+  if (!shortcuts_array.isNull() && robot_info.has_shortcuts) {
     for (const Shortcut& shortcut : robot_info.shortcuts) {
-      JsonObject shortcut_json = doc["shortcuts"].createNestedObject();
-      shortcut_json["id"] = shortcut.id;
-      shortcut_json["name"] = shortcut.name;
+      JsonObject shortcut_json = shortcuts_array.createNestedObject();
+      if (!shortcut_json.isNull()) {
+        shortcut_json["id"] = shortcut.id;
+        shortcut_json["name"] = shortcut.name;
+      }
     }
   }
 
